@@ -52,7 +52,7 @@
             --radius: 20px;
             --radius-sm: 12px;
             --shadow: 0 8px 40px rgba(0, 0, 0, 0.6);
-            --font: 'SF Pro Display', 'SF Pro Text', -apple-system, 'Helvetica Neue', system-ui, sans-serif;
+            --font: -apple-system, 'SF Pro Display', 'SF Pro Text', 'Helvetica Neue', system-ui, sans-serif;
             --safe-bottom: env(safe-area-inset-bottom, 0px);
         }
 
@@ -73,15 +73,7 @@
 
         /* force Apple emoji style */
         body {
-            font-family: 'SF Pro Display', 'SF Pro Text', -apple-system, 'Helvetica Neue', system-ui, sans-serif;
-        }
-
-        /* Apple Color Emoji override for all emoji characters */
-        .emoji, [data-twemoji] img {
-            width: 1.1em !important;
-            height: 1.1em !important;
-            vertical-align: -0.15em !important;
-            display: inline-block !important;
+            font-family: -apple-system, 'SF Pro Display', 'SF Pro Text', 'Helvetica Neue', system-ui, 'Segoe UI Emoji', 'Apple Color Emoji', sans-serif;
         }
 
         ::-webkit-scrollbar {
@@ -1981,46 +1973,6 @@
                 padding-bottom: env(safe-area-inset-bottom, 0px);
             }
         }
-    /* ═══════════════════════════════════════
-               SF PRO FONT FACE (CDN)
-               ═══════════════════════════════════════ */
-    @font-face {
-        font-family: 'SF Pro Display';
-        src: url('https://db.onlinewebfonts.com/t/c0b6d43e0f41d07d13985e27ec40db3b.woff2') format('woff2'),
-             url('https://db.onlinewebfonts.com/t/c0b6d43e0f41d07d13985e27ec40db3b.woff') format('woff');
-        font-weight: 400;
-        font-style: normal;
-        font-display: swap;
-    }
-    @font-face {
-        font-family: 'SF Pro Display';
-        src: url('https://db.onlinewebfonts.com/t/d0e1f84e2e9e68eb0d1c0c2c0c2c0c2c.woff2') format('woff2'),
-             url('https://db.onlinewebfonts.com/t/d0e1f84e2e9e68eb0d1c0c2c0c2c0c2c.woff') format('woff');
-        font-weight: 700;
-        font-style: normal;
-        font-display: swap;
-    }
-    @font-face {
-        font-family: 'SF Pro Text';
-        src: url('https://db.onlinewebfonts.com/t/b5e4e22c9b47b2c7c29f7af3a4e2c11e.woff2') format('woff2'),
-             url('https://db.onlinewebfonts.com/t/b5e4e22c9b47b2c7c29f7af3a4e2c11e.woff') format('woff');
-        font-weight: 400;
-        font-style: normal;
-        font-display: swap;
-    }
-    </style>
-    <!-- ═══════════════ TWEMOJI (Apple-style emoji on all browsers) ═══════════════ -->
-    <script src="https://cdn.jsdelivr.net/npm/twemoji@14.0.2/dist/twemoji.min.js" crossorigin="anonymous"></script>
-    <style>
-        /* Twemoji img sizing */
-        img.emoji {
-            height: 1.1em;
-            width: 1.1em;
-            margin: 0 0.05em 0 0.1em;
-            vertical-align: -0.15em;
-            display: inline-block;
-            pointer-events: none;
-        }
     </style>
 </head>
 
@@ -2067,7 +2019,7 @@
                     <div class="auth-err" id="regErr"></div>
                     <div class="form-group">
                         <label>👤 الاسم الكامل</label>
-                        <input type="text" id="regName" placeholder="اسمك هنا">
+                        <input type="text" id="regName"  هنا">
                     </div>
                     <div class="form-row">
                         <div class="form-group">
@@ -2373,67 +2325,55 @@
 
             function escHtml(str) { return sanitize(String(str)); }
 
-            // ─── API CLIENT ──────────────────────────────
-            const API_BASE = 'http://fi11.bot-hosting.net:21116';
-
-            function authHeaders() {
-                const token = localStorage.getItem('zk_token');
-                return token
-                    ? { 'Content-Type': 'application/json', 'x-auth-token': token }
-                    : { 'Content-Type': 'application/json' };
-            }
-
-            async function apiCall(method, path, body) {
-                const opts = { method, headers: authHeaders() };
-                if (body) opts.body = JSON.stringify(body);
-                const res = await fetch(API_BASE + path, opts);
-                const data = await res.json().catch(() => ({}));
-                if (!res.ok) throw new Error(data.error || 'خطأ في الاتصال بالسيرفر');
-                return data;
-            }
-
-            // ─── DB (in-memory cache + server sync) ─────
+            // ─── DB ─────────────────────────────────────
             const DB = {
-                _users: [], _convs: [], _masterKeys: [],
-
-                get users()      { return this._users; },
-                get convs()      { return this._convs; },
-                get masterKeys() { return this._masterKeys; },
-
-                // session token في localStorage بس (مش البيانات)
-                get session()    { const t = localStorage.getItem('zk_token'); return t ? { token: t } : null; },
-                set session(v)   {
-                    if (v && v.token) localStorage.setItem('zk_token', v.token);
-                    else localStorage.removeItem('zk_token');
-                },
+                get users() { return JSON.parse(localStorage.getItem('zk_users') || '[]') },
+                set users(v) { localStorage.setItem('zk_users', JSON.stringify(v)) },
+                get masterKeys() { return JSON.parse(localStorage.getItem('zk_master_keys') || '[]') },
+                set masterKeys(v) { localStorage.setItem('zk_master_keys', JSON.stringify(v)) },
+                get convs() { return JSON.parse(localStorage.getItem('zk_convs') || '[]') },
+                set convs(v) { localStorage.setItem('zk_convs', JSON.stringify(v)) },
+                get session() { return JSON.parse(localStorage.getItem('zk_session') || 'null') },
+                set session(v) { localStorage.setItem('zk_session', JSON.stringify(v)) },
 
                 findUser(idOrEmail) {
-                    return this._users.find(u =>
-                        u.email === idOrEmail || u.phone === idOrEmail || u.id === idOrEmail
+                    return this.users.find(u =>
+                        u.email === idOrEmail ||
+                        u.phone === idOrEmail ||
+                        u.id === idOrEmail
                     ) || null;
                 },
-                userConvs(uid) { return this._convs.filter(c => c.userId === uid); },
-
-                async saveConv(c) {
-                    try { await apiCall('POST', '/api/convs', c); }
-                    catch(e) { console.warn('saveConv error:', e.message); }
-                    // update local cache
-                    const i = this._convs.findIndex(x => x.id === c.id);
-                    if (i >= 0) this._convs[i] = c; else this._convs.push(c);
+                saveUser(u) {
+                    const users = this.users;
+                    const i = users.findIndex(x => x.id === u.id);
+                    if (i >= 0) users[i] = u;
+                    else users.push(u);
+                    this.users = users;
                 },
-
-                totalMsgs() { return this._convs.reduce((s,c) => s + (c.messages?.length||0), 0); }
+                userConvs(uid) { return this.convs.filter(c => c.userId === uid) },
+                saveConv(c) {
+                    const convs = this.convs;
+                    const i = convs.findIndex(x => x.id === c.id);
+                    if (i >= 0) convs[i] = c;
+                    else convs.push(c);
+                    this.convs = convs;
+                },
+                totalMsgs() { return this.convs.reduce((s, c) => s + (c.messages?.length || 0), 0) }
             };
 
             // ─── ADMIN ──────────────────────────────────
-            // الأدمن بقى على السيرفر بس — مش هنا
+            const ADMIN = {
+                email: 'hooda2024g1@gmail.com',
+                phone: '01065749774',
+                password: 'محمود',
+                name: 'محمود أحمد',
+                id: 'admin_0001',
+                role: 'admin'
+            };
 
             // ─── BASIC KEY ─────────────────────────────
-            const BASIC_KEYS = [
-                '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',
-                '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'
-            ];
-            const BASIC_KEY = BASIC_KEYS[Math.floor(Date.now() / 60000) % BASIC_KEYS.length];
+            const BASIC_KEY =
+                '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';
             const BASIC_PROVIDER = 'github';
             const BASIC_MODEL = 'openai/gpt-4o';
 
@@ -2494,25 +2434,18 @@
             }
 
             // ─── BOOT ────────────────────────────────────
-            async function boot() {
+            function boot() {
                 const sess = DB.session;
-                if (!sess) { showAuth(); return; }
-                try {
-                    const user = await apiCall('GET', '/api/me');
-                    currentUser = user;
-                    // تحميل المحادثات
-                    DB._convs = await apiCall('GET', '/api/convs').catch(() => []);
-                    // تحميل master keys لو admin
-                    if (user.role === 'admin') {
-                        DB._masterKeys = await apiCall('GET', '/api/admin/keys').catch(() => []);
+                if (sess) {
+                    if (sess.id === 'admin_0001') {
+                        currentUser = ADMIN;
                         showAdmin();
                     } else {
-                        showApp();
+                        const u = DB.findUser(sess.id);
+                        if (u) { currentUser = u;
+                            showApp(); } else showAuth();
                     }
-                } catch(e) {
-                    DB.session = null;
-                    showAuth();
-                }
+                } else showAuth();
             }
 
             // ─── AUTH ────────────────────────────────────
@@ -2559,101 +2492,87 @@
                 setTimeout(() => el.classList.remove('show'), 4000);
             }
 
-            async function doLogin() {
-                const id   = document.getElementById('loginId').value.trim();
+            function doLogin() {
+                const id = document.getElementById('loginId').value.trim();
                 const pass = document.getElementById('loginPass').value;
                 if (!id || !pass) { showErr('loginErr', 'من فضلك اكتب بياناتك كاملة'); return; }
 
-                const btn = document.querySelector('#loginForm .auth-btn');
-                if (btn) btn.classList.add('loading');
-                try {
-                    const data = await apiCall('POST', '/api/login', { id, password: pass });
-                    DB.session = { token: data.token };
-                    currentUser = data.user;
-                    DB._convs = await apiCall('GET', '/api/convs').catch(() => []);
-                    if (data.user.role === 'admin') {
-                        DB._masterKeys = await apiCall('GET', '/api/admin/keys').catch(() => []);
-                        showAdmin();
-                    } else {
-                        showApp();
-                    }
-                } catch(e) {
-                    showErr('loginErr', e.message);
-                } finally {
-                    if (btn) btn.classList.remove('loading');
+                if ((id === ADMIN.email || id === ADMIN.phone) && pass === ADMIN.password) {
+                    currentUser = ADMIN;
+                    DB.session = { id: ADMIN.id };
+                    showAdmin();
+                    return;
                 }
+
+                const u = DB.findUser(id);
+                if (!u) { showErr('loginErr', 'الحساب مش موجود. سجّل حساب جديد!'); return; }
+                if (u.password !== btoa(pass)) { showErr('loginErr', 'كلمة المرور غلط'); return; }
+                currentUser = u;
+                DB.session = { id: u.id };
+                showApp();
             }
 
-            async function doRegister() {
-                const name  = document.getElementById('regName').value.trim();
+            function doRegister() {
+                const name = document.getElementById('regName').value.trim();
                 const phone = document.getElementById('regPhone').value.trim();
-                const age   = parseInt(document.getElementById('regAge').value) || 0;
+                const age = parseInt(document.getElementById('regAge').value) || 0;
                 const email = document.getElementById('regEmail').value.trim().toLowerCase();
-                const pass  = document.getElementById('regPass').value;
+                const pass = document.getElementById('regPass').value;
                 const pass2 = document.getElementById('regPass2').value;
 
                 if (!name || !phone || !email || !pass) { showErr('regErr', 'اكمل كل البيانات'); return; }
-                if (age < 5 || age > 120)               { showErr('regErr', 'العمر مش صح'); return; }
-                if (pass.length < 8)                    { showErr('regErr', 'كلمة المرور لازم 8 حروف على الأقل'); return; }
-                if (pass !== pass2)                     { showErr('regErr', 'كلمات المرور مش متطابقة'); return; }
-                if (!/^01[0-9]{9}$/.test(phone))        { showErr('regErr', 'رقم الهاتف مش صح (01xxxxxxxxx)'); return; }
+                if (age < 5 || age > 120) { showErr('regErr', 'العمر مش صح'); return; }
+                if (pass.length < 8) { showErr('regErr', 'كلمة المرور لازم 8 حروف على الأقل'); return; }
+                if (pass !== pass2) { showErr('regErr', 'كلمات المرور مش متطابقة'); return; }
+                if (!/^01[0-9]{9}$/.test(phone)) { showErr('regErr', 'رقم الهاتف مش صح (01xxxxxxxxx)'); return; }
 
-                const btn = document.querySelector('#registerForm .auth-btn');
-                if (btn) btn.classList.add('loading');
-                try {
-                    const data = await apiCall('POST', '/api/register', { name, phone, age, email, password: pass });
-                    DB.session  = { token: data.token };
-                    currentUser = data.user;
-                    DB._convs   = [];
-                    showApp();
-                } catch(e) {
-                    showErr('regErr', e.message);
-                } finally {
-                    if (btn) btn.classList.remove('loading');
-                }
+                const users = DB.users;
+                if (users.find(u => u.email === email)) { showErr('regErr', 'البريد الإلكتروني مسجل قبل كده'); return; }
+                if (users.find(u => u.phone === phone)) { showErr('regErr', 'رقم الهاتف مسجل قبل كده'); return; }
+
+                const newUser = {
+                    id: 'u_' + Date.now(),
+                    name,
+                    phone,
+                    age,
+                    email,
+                    password: btoa(pass),
+                    role: 'user',
+                    keys: {},
+                    createdAt: new Date().toISOString()
+                };
+                DB.saveUser(newUser);
+                currentUser = newUser;
+                DB.session = { id: newUser.id };
+                showApp();
             }
 
-            async function doLogout() {
-                try { await apiCall('POST', '/api/logout'); } catch(e) { /* ignore */ }
+            function doLogout() {
                 DB.session = null;
                 currentUser = null;
                 messages = [];
                 currentConvId = null;
                 pendingAttachments = [];
-                DB._convs = [];
-                DB._masterKeys = [];
                 showAuth();
             }
 
             // ─── ADMIN PANEL ─────────────────────────────
-            async function refreshAdminPanel() {
-                try {
-                    const stats = await apiCall('GET', '/api/admin/stats');
-                    document.getElementById('statUsers').textContent = stats.users;
-                    document.getElementById('statConvs').textContent = stats.convs;
-                    document.getElementById('statKeys').textContent  = stats.masterKeys;
-                    document.getElementById('statMsgs').textContent  = stats.totalMsgs;
-                    DB._masterKeys = await apiCall('GET', '/api/admin/keys');
-                    const allUsers = await apiCall('GET', '/api/admin/users');
-                    DB._convs      = await apiCall('GET', '/api/admin/convs');
-                    _renderAdminUsers(allUsers);
-                    _renderAdminKeys(DB._masterKeys);
-                    _renderAdminConvs(DB._convs);
-                } catch(e) { console.warn('refreshAdminPanel:', e.message); }
-            }
+            function refreshAdminPanel() {
+                const users = DB.users;
+                const convs = DB.convs;
+                const masterKeys = DB.masterKeys;
 
-            function _renderAdminStats_placeholder() {
-                // احتياطي — الـ stats اتعملت في refreshAdminPanel فوق
-            }
+                document.getElementById('statUsers').textContent = users.length;
+                document.getElementById('statConvs').textContent = convs.length;
+                document.getElementById('statKeys').textContent = masterKeys.length;
+                document.getElementById('statMsgs').textContent = DB.totalMsgs();
 
-            // دالة وهمية بتحافظ على نفس الهيكل القديم
-            function _renderAdminKeys(masterKeys) {
-
-            // render master keys list
+                // Master keys
                 const kl = document.getElementById('adminKeysList');
                 kl.innerHTML = '';
-                if (!masterKeys || masterKeys.length === 0) {
-                    kl.innerHTML = '<div style="color:var(--dim);font-size:0.75rem;text-align:center;padding:10px">لا توجد مفاتيح مضافة</div>';
+                if (masterKeys.length === 0) {
+                    kl.innerHTML =
+                    '<div style="color:var(--dim);font-size:0.75rem;text-align:center;padding:10px">لا توجد مفاتيح مضافة</div>';
                 } else {
                     masterKeys.forEach((k, i) => {
                         const div = document.createElement('div');
@@ -2666,78 +2585,85 @@
                         kl.appendChild(div);
                     });
                 }
-            }
 
-            function _renderAdminUsers(users) {
+                // Users
                 const tbody = document.getElementById('usersTableBody');
                 tbody.innerHTML = '';
-                if (!users || users.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--dim);padding:14px">لا يوجد مستخدمون بعد</td></tr>';
-                    return;
-                }
                 users.forEach(u => {
+                    const uConvs = DB.convs.filter(c => c.userId === u.id).length;
+                    const keyCount = Object.keys(u.keys || {}).length;
                     const tr = document.createElement('tr');
                     tr.innerHTML = `
                 <td><strong>${sanitize(u.name)}</strong></td>
                 <td style="font-size:0.7rem">${sanitize(u.email)}<br><span style="color:var(--dim)">${sanitize(u.phone)}</span></td>
                 <td>${u.age}</td>
                 <td><span class="badge ${u.role==='admin'?'badge-admin':'badge-user'}">${u.role==='admin'?'مطور':'مستخدم'}</span></td>
-                <td>${u.keyCount||0}</td>
-                <td>${u.convCount||0}</td>
+                <td>${keyCount}</td>
+                <td>${uConvs}</td>
                 <td><button class="btn-admin btn-danger btn-sm" onclick="adminDeleteUser('${u.id}')">🗑️</button></td>
               `;
                     tbody.appendChild(tr);
                 });
-            }
-
-            function _renderAdminConvs(convs) {
-                const cl = document.getElementById('adminConvsList');
-                cl.innerHTML = '';
-                if (!convs || convs.length === 0) {
-                    cl.innerHTML = '<div style="color:var(--dim);font-size:0.75rem;text-align:center;padding:10px">لا توجد محادثات</div>';
-                    return;
+                if (users.length === 0) {
+                    tbody.innerHTML =
+                        '<tr><td colspan="7" style="text-align:center;color:var(--dim);padding:14px">لا يوجد مستخدمون بعد</td></tr>';
                 }
-                convs.slice(0,10).forEach(c => {
-                    const div = document.createElement('div');
-                    div.style.cssText = 'background:var(--surface2);border:1px solid var(--border2);border-radius:10px;padding:9px 12px;margin-bottom:6px;';
-                    div.innerHTML = `
+
+                // Recent convs
+                const cl = document.getElementById('adminConvsList');
+                const recent = [...DB.convs].sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 10);
+                cl.innerHTML = '';
+                if (recent.length === 0) {
+                    cl.innerHTML =
+                    '<div style="color:var(--dim);font-size:0.75rem;text-align:center;padding:10px">لا توجد محادثات</div>';
+                } else {
+                    recent.forEach(c => {
+                        const u = DB.findUser(c.userId);
+                        const div = document.createElement('div');
+                        div.style.cssText =
+                            'background:var(--surface2);border:1px solid var(--border2);border-radius:10px;padding:9px 12px;margin-bottom:6px;';
+                        div.innerHTML = `
                   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px">
                     <span style="font-size:0.78rem;font-weight:600">${sanitize(c.title||'محادثة')}</span>
                     <span style="font-size:0.62rem;color:var(--dim)">${formatDate(c.date)}</span>
                   </div>
-                  <div style="font-size:0.7rem;color:var(--dim2)">👤 ${sanitize(c.userName||'مجهول')} · ${c.messages?.length||0} رسالة</div>
+                  <div style="font-size:0.7rem;color:var(--dim2)">👤 ${sanitize(u?.name||'مجهول')} · ${c.messages?.length||0} رسالة</div>
                 `;
-                    cl.appendChild(div);
-                });
+                        cl.appendChild(div);
+                    });
+                }
             }
 
-            window.adminAddKey = async function() {
+            window.adminAddKey = function() {
                 const prov = document.getElementById('adminKeyProv').value;
-                const val  = document.getElementById('adminKeyVal').value.trim();
+                const val = document.getElementById('adminKeyVal').value.trim();
                 if (!val) { showToast('⚠️ أدخل المفتاح', 'error'); return; }
-                try {
-                    await apiCall('POST', '/api/admin/keys', { provider: prov, key: val });
-                    document.getElementById('adminKeyVal').value = '';
-                    await refreshAdminPanel();
-                    showToast('✅ تم إضافة المفتاح للكل!', 'success');
-                } catch(e) { showToast('❌ ' + e.message, 'error'); }
+                const keys = DB.masterKeys;
+                keys.push({ provider: prov, key: val, addedAt: new Date().toISOString() });
+                DB.masterKeys = keys;
+                document.getElementById('adminKeyVal').value = '';
+                refreshAdminPanel();
+                showToast('✅ تم إضافة المفتاح للكل!', 'success');
             };
 
-            window.adminRemoveKey = async function(i) {
-                try {
-                    await apiCall('DELETE', `/api/admin/keys/${i}`);
-                    await refreshAdminPanel();
-                    showToast('🗑️ تم حذف المفتاح', '');
-                } catch(e) { showToast('❌ ' + e.message, 'error'); }
+            window.adminRemoveKey = function(i) {
+                const keys = DB.masterKeys;
+                keys.splice(i, 1);
+                DB.masterKeys = keys;
+                refreshAdminPanel();
+                showToast('🗑️ تم حذف المفتاح', '');
             };
 
-            window.adminDeleteUser = async function(uid) {
+            window.adminDeleteUser = function(uid) {
                 if (!confirm('هل أنت متأكد من حذف هذا الحساب؟')) return;
-                try {
-                    await apiCall('DELETE', `/api/admin/users/${uid}`);
-                    await refreshAdminPanel();
-                    showToast('🗑️ تم حذف الحساب', '');
-                } catch(e) { showToast('❌ ' + e.message, 'error'); }
+                let users = DB.users;
+                users = users.filter(u => u.id !== uid);
+                DB.users = users;
+                let convs = DB.convs;
+                convs = convs.filter(c => c.userId !== uid);
+                DB.convs = convs;
+                refreshAdminPanel();
+                showToast('🗑️ تم حذف الحساب', '');
             };
 
             // ─── CHAT INIT ──────────────────────────────
@@ -2775,8 +2701,8 @@
                 for (const [prov, key] of Object.entries(userKeys)) {
                     if (key) return { provider: prov, key };
                 }
-                const masterKeys = DB._masterKeys;
-                if (masterKeys && masterKeys.length > 0) {
+                const masterKeys = DB.masterKeys;
+                if (masterKeys.length > 0) {
                     return { provider: masterKeys[0].provider, key: masterKeys[0].key };
                 }
                 return { provider: BASIC_PROVIDER, key: BASIC_KEY };
@@ -2801,7 +2727,7 @@
                 const u = currentUser?.keys || {};
                 if (u.openai) return { provider: 'openai', key: u.openai };
                 if (u.github) return { provider: 'github', key: u.github };
-                const mk = DB._masterKeys.find(k => k.provider === 'openai' || k.provider === 'github');
+                const mk = DB.masterKeys.find(k => k.provider === 'openai' || k.provider === 'github');
                 if (mk) return { provider: mk.provider, key: mk.key };
                 return { provider: BASIC_PROVIDER, key: BASIC_KEY };
             }
@@ -2826,7 +2752,7 @@
                     badge.textContent = '🧠 ذكاء أساسي';
                     return;
                 }
-                const isMaster = DB._masterKeys.some(k => k.key === key);
+                const isMaster = DB.masterKeys.some(k => k.key === key);
                 const labels = { github: 'GitHub', groq: 'Groq', openai: 'ChatGPT', deepseek: 'DeepSeek' };
                 dot.className = 'dot d-' + provider;
                 name.textContent = labels[provider] || provider;
@@ -2850,30 +2776,33 @@
                 document.getElementById(secMap[p])?.classList.add('active');
             };
 
-            window.saveUserKey = async function() {
+            window.saveUserKey = function() {
                 if (!currentUser || currentUser.id === 'admin_0001') return;
                 const keyMap = {
-                    github:   document.getElementById('githubKeyInp').value.trim(),
-                    groq:     document.getElementById('groqKeyInp').value.trim(),
-                    openai:   document.getElementById('openaiKeyInp').value.trim(),
+                    github: document.getElementById('githubKeyInp').value.trim(),
+                    groq: document.getElementById('groqKeyInp').value.trim(),
+                    openai: document.getElementById('openaiKeyInp').value.trim(),
                     deepseek: document.getElementById('deepseekKeyInp').value.trim(),
                 };
                 const key = keyMap[settProv];
                 if (!key) { showToast('⚠️ أدخل المفتاح أولاً', 'error'); return; }
 
-                currentUser.keys = currentUser.keys || {};
-                currentUser.keys[settProv] = key;
-
-                try {
-                    await apiCall('PUT', '/api/keys', { keys: currentUser.keys });
-                } catch(e) { console.warn('saveUserKey:', e.message); }
-
+                const users = DB.users;
+                const u = users.find(x => x.id === currentUser.id);
+                if (u) {
+                    u.keys = u.keys || {};
+                    u.keys[settProv] = key;
+                    currentUser = u;
+                    DB.users = users;
+                }
                 const statusIds = { github: 'ghStatus', groq: 'groqStatus', openai: 'openaiStatus', deepseek: 'deepseekStatus' };
                 const st = document.getElementById(statusIds[settProv]);
-                if (st) { st.textContent = '✓ تم حفظ المفتاح'; st.className = 'tok-status tok-ok'; }
+                if (st) { st.textContent = '✓ تم حفظ المفتاح';
+                    st.className = 'tok-status tok-ok'; }
                 updateProvBadge();
                 showToast('✅ تم حفظ المفتاح!', 'success');
-                setTimeout(() => { if (st) st.className = 'tok-status'; closeAllSheets(); }, 1400);
+                setTimeout(() => { if (st) st.className = 'tok-status';
+                    closeAllSheets(); }, 1400);
             };
 
             window.saveExtraSettings = function() {
@@ -3005,7 +2934,7 @@
 
             // ─── HISTORY ──────────────────────────────────
             function renderHistory() {
-                const list  = document.getElementById('historyList');
+                const list = document.getElementById('historyList');
                 const empty = document.getElementById('historyEmpty');
                 const convs = DB.userConvs(currentUser?.id || '').filter(c => c.messages?.length > 0);
                 [...list.querySelectorAll('.history-item')].forEach(e => e.remove());
@@ -3014,14 +2943,15 @@
                 [...convs].sort((a, b) => new Date(b.date) - new Date(a.date)).forEach(conv => {
                     const el = document.createElement('div');
                     el.className = 'history-item' + (conv.id === currentConvId ? ' active' : '');
-                    el.innerHTML = `<div class="hi-title">${sanitize(conv.title||'محادثة')}</div><div class="hi-date">${formatDate(conv.date)}</div>`;
+                    el.innerHTML =
+                        `<div class="hi-title">${sanitize(conv.title||'محادثة')}</div><div class="hi-date">${formatDate(conv.date)}</div>`;
                     el.onclick = function() { loadConv(conv.id); };
                     list.appendChild(el);
                 });
             }
 
             function loadConv(id) {
-                const conv = DB._convs.find(c => c.id === id);
+                const conv = DB.convs.find(c => c.id === id);
                 if (!conv) return;
                 currentConvId = id;
                 messages = [...conv.messages];
@@ -3041,7 +2971,7 @@
                 document.getElementById('userInput').focus();
             }
 
-            async function saveConv() {
+            function saveConv() {
                 if (!currentUser || messages.length === 0) return;
                 const firstMsg = messages.find(m => m.role === 'user');
                 let title = 'محادثة';
@@ -3061,7 +2991,7 @@
                     date: new Date().toISOString(),
                     messages: [...messages]
                 };
-                await DB.saveConv(conv);
+                DB.saveConv(conv);
                 renderHistory();
             }
 
@@ -3881,44 +3811,6 @@
 
             // ─── START ────────────────────────────────────
             boot();
-
-            // ─── TWEMOJI (Apple-style emoji on ALL browsers) ──
-            function applyTwemoji(el) {
-                if (typeof twemoji === 'undefined') return;
-                twemoji.parse(el || document.body, {
-                    folder: 'svg',
-                    ext: '.svg',
-                    base: 'https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/',
-                    className: 'emoji',
-                    attributes: () => ({ draggable: 'false', 'aria-hidden': 'true' })
-                });
-            }
-
-            // Run on load and expose for dynamic content
-            window.addEventListener('load', () => applyTwemoji(document.body));
-            window.applyTwemoji = applyTwemoji;
-
-            // Patch renderMessages to apply twemoji after render
-            const _origRenderMessages = window.renderMessages;
-            if (typeof _origRenderMessages === 'function') {
-                window.renderMessages = function() {
-                    _origRenderMessages.apply(this, arguments);
-                    setTimeout(() => applyTwemoji(document.getElementById('messages')), 100);
-                };
-            }
-
-            // MutationObserver — catches dynamically added bubbles / streaming text
-            const _emojiObserver = new MutationObserver((mutations) => {
-                mutations.forEach(m => {
-                    m.addedNodes.forEach(node => {
-                        if (node.nodeType === 1) applyTwemoji(node);
-                    });
-                });
-            });
-            const _msgContainer = document.getElementById('messages');
-            if (_msgContainer) {
-                _emojiObserver.observe(_msgContainer, { childList: true, subtree: true });
-            }
 
         })();
     </script>
