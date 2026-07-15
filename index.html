@@ -2,902 +2,1283 @@
 <html lang="ar" dir="rtl">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
-<title>NovaMind AI Code Studio</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NovaMind AI</title>
 <style>
-/* ===== RESET ===== */
+/* ===== RESET & BASE ===== */
 *,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
 :root{
-  --bg:#0a0a12;--bg2:#12121e;--bg3:#1a1a2e;--bg4:#252540;--bg5:#2d2d50;
-  --text:#e8e8f0;--text2:#9494b8;--text3:#6b6b8a;
-  --accent:#7c5cfc;--accent2:#6a4ae0;--accent3:#9d7cff;
-  --green:#34d399;--red:#f87171;--yellow:#fbbf24;--blue:#60a5fa;
-  --border:#252540;--border2:#1a1a30;
-  --radius:10px;--r2:14px;--r3:20px;
-  --font:'Cairo','Tahoma',sans-serif;--mono:'JetBrains Mono','Fira Code','Consolas',monospace;
-  --safe-bottom:env(safe-area-inset-bottom,0px);
-  --header-h:52px;--panel-w:320px;
+  --bg:#020617;--bg2:#0f172a;--bg3:#1e293b;--bg4:#334155;
+  --text:#f8fafc;--text2:#94a3b8;--text3:#64748b;
+  --primary:#6366f1;--primary2:#4f46e5;--primary3:#818cf8;
+  --purple:#9333ea;--pink:#ec4899;
+  --border:#334155;--border2:#1e293b;
+  --shadow:0 0 20px rgba(99,102,241,.15),0 0 40px rgba(99,102,241,.05);
+  --radius:12px;--radius2:16px;--radius3:24px;
+  --font:'Cairo','Tahoma',sans-serif;
 }
 .light{
-  --bg:#f4f4f9;--bg2:#ffffff;--bg3:#edf0f7;--bg4:#dce0ec;--bg5:#c8cee0;
-  --text:#1a1a2e;--text2:#5a5a7a;--text3:#8888aa;
-  --accent:#6a4ae0;--accent2:#5a3ad0;--accent3:#8b6ff0;
-  --green:#10b981;--red:#ef4444;--yellow:#f59e0b;--blue:#3b82f6;
-  --border:#dce0ec;--border2:#e8ecf4;
+  --bg:#f8fafc;--bg2:#ffffff;--bg3:#f1f5f9;--bg4:#e2e8f0;
+  --text:#0f172a;--text2:#64748b;--text3:#94a3b8;
+  --primary:#4f46e5;--primary2:#4338ca;--primary3:#6366f1;
+  --border:#e2e8f0;--border2:#cbd5e1;
+  --shadow:0 0 20px rgba(99,102,241,.1);
 }
-html,body{height:100%;-webkit-tap-highlight-color:transparent}
-body{font-family:var(--font);background:var(--bg);color:var(--text);overflow:hidden;transition:background .25s,color .25s}
-input,textarea,button{font-family:var(--font);outline:none;border:none;background:none;color:inherit}
+html,body{height:100%}
+body{
+  font-family:var(--font);background:var(--bg);color:var(--text);
+  overflow:hidden;transition:background .3s,color .3s;
+}
+input,textarea,button{font-family:var(--font);outline:none;border:none}
 input::placeholder,textarea::placeholder{color:var(--text3)}
-a{color:var(--accent3);text-decoration:none}
-::-webkit-scrollbar{width:4px;height:4px}
+/* ===== SCROLLBAR ===== */
+::-webkit-scrollbar{width:6px}
 ::-webkit-scrollbar-track{background:transparent}
-::-webkit-scrollbar-thumb{background:var(--text3);border-radius:4px}
-::selection{background:var(--accent);color:#fff}
-
-/* ===== ANIMATIONS ===== */
-@keyframes fadeOut{to{opacity:0;transform:translateY(-20px);pointer-events:none}}
-@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
-@keyframes slideIn{from{opacity:0;transform:translateX(20px)}to{opacity:1;transform:translateX(0)}}
-@keyframes slideUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
-@keyframes pulse{0%,100%{opacity:.15}50%{opacity:.4}}
-@keyframes bounce{0%,60%,100%{transform:translateY(0);opacity:.4}30%{transform:translateY(-6px);opacity:1}}
-@keyframes msgIn{from{opacity:0;transform:translateY(8px) scale(.98)}to{opacity:1;transform:translateY(0) scale(1)}}
-@keyframes spin{to{transform:rotate(360deg)}}
-@keyframes dots::after{content:'';animation:dotAnim 1.5s infinite}
-@keyframes dotAnim{0%{content:'.'}33%{content:'..'}66%{content:'...'}}
-
+::-webkit-scrollbar-thumb{background:var(--text3);border-radius:3px}
 /* ===== WELCOME ===== */
-#welcome{position:fixed;inset:0;z-index:200;display:flex;align-items:center;justify-content:center;background:var(--bg);direction:rtl}
+#welcome{
+  position:fixed;inset:0;z-index:100;
+  display:flex;align-items:center;justify-content:center;
+  background:var(--bg);direction:rtl;
+}
 #welcome.hidden{animation:fadeOut .5s forwards}
+@keyframes fadeOut{to{opacity:0;transform:translateY(-20px);pointer-events:none}}
+@keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+@keyframes slideUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+@keyframes pulse{0%,100%{opacity:.2}50%{opacity:.8}}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes bounce{0%,60%,100%{transform:translateY(0);opacity:.4}30%{transform:translateY(-8px);opacity:1}}
+@keyframes msgIn{from{opacity:0;transform:translateY(10px) scale(.98)}to{opacity:1;transform:translateY(0) scale(1)}}
 .w-particles{position:absolute;inset:0;overflow:hidden;pointer-events:none}
-.w-particle{position:absolute;border-radius:50%;background:var(--accent);opacity:.12;animation:pulse 3s ease-in-out infinite}
-.w-grid{position:absolute;inset:0;opacity:.02;background-image:linear-gradient(rgba(124,92,252,.25) 1px,transparent 1px),linear-gradient(90deg,rgba(124,92,252,.25) 1px,transparent 1px);background-size:60px 60px}
+.w-particle{
+  position:absolute;border-radius:50%;background:var(--primary);opacity:.15;
+  animation:pulse 3s ease-in-out infinite;
+}
+.w-grid{
+  position:absolute;inset:0;opacity:.03;
+  background-image:linear-gradient(rgba(99,102,241,.3) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(99,102,241,.3) 1px,transparent 1px);
+  background-size:60px 60px;
+}
 .w-content{position:relative;z-index:10;text-align:center;padding:0 24px;max-width:420px;width:100%}
-.w-logo{width:88px;height:88px;margin:0 auto 28px;border-radius:var(--r2);padding:2px;background:linear-gradient(135deg,var(--accent),#7c3aed,#ec4899);box-shadow:0 0 40px rgba(124,92,252,.2);animation:slideUp .6s .2s both}
-.w-logo-inner{width:100%;height:100%;border-radius:14px;background:var(--bg);display:flex;align-items:center;justify-content:center;font-size:32px}
-.w-title{font-size:clamp(26px,5.5vw,40px);font-weight:800;margin-bottom:12px;animation:slideUp .6s .4s both}
-.w-title span{background:linear-gradient(135deg,var(--accent3),#a78bfa,#f472b6);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
-.w-desc{color:var(--text2);font-size:clamp(13px,2.8vw,16px);line-height:1.8;margin-bottom:36px;animation:slideUp .6s .6s both}
+.w-logo{
+  width:96px;height:96px;margin:0 auto 32px;border-radius:16px;
+  padding:2px;background:linear-gradient(135deg,var(--primary),var(--purple),var(--pink));
+  box-shadow:var(--shadow);animation:slideUp .6s .2s both;
+}
+.w-logo-inner{
+  width:100%;height:100%;border-radius:14px;background:var(--bg);
+  display:flex;align-items:center;justify-content:center;font-size:40px;
+}
+.w-title{font-size:40px;font-weight:800;margin-bottom:16px;animation:slideUp .6s .4s both}
+.w-title span{background:linear-gradient(135deg,var(--primary3),var(--purple),var(--pink));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.w-desc{color:var(--text2);font-size:17px;line-height:1.8;margin-bottom:40px;animation:slideUp .6s .6s both}
 .w-form{animation:slideUp .6s .8s both}
-.w-input{width:100%;padding:14px 20px;background:var(--bg3);border:2px solid var(--border);border-radius:var(--r2);color:var(--text);font-size:17px;text-align:center;transition:border .3s;margin-bottom:14px;-webkit-appearance:none}
-.w-input:focus{border-color:var(--accent);box-shadow:0 0 0 4px rgba(124,92,252,.12)}
-.w-btn{width:100%;padding:14px 28px;border-radius:var(--r2);font-size:17px;font-weight:600;background:linear-gradient(to left,var(--accent2),#7c3aed);color:#fff;cursor:pointer;transition:all .3s;display:flex;align-items:center;justify-content:center;gap:8px;min-height:50px}
-.w-btn:hover{transform:scale(1.02);box-shadow:0 0 30px rgba(124,92,252,.25)}
-.w-btn:disabled{opacity:.45;cursor:default;transform:none;box-shadow:none}
-.w-footer{margin-top:40px;font-size:12px;color:var(--text3);animation:slideUp .6s 1.5s both}
-
-/* ===== APP GRID ===== */
-#app{height:100vh;height:100dvh;display:grid;grid-template-columns:1fr;grid-template-rows:var(--header-h) 1fr;opacity:0;transition:opacity .4s}
+.w-input{
+  width:100%;padding:16px 24px;background:var(--bg3);border:1px solid var(--border);
+  border-radius:16px;color:var(--text);font-size:18px;text-align:center;
+  transition:border .3s;margin-bottom:16px;
+}
+.w-input:focus{border-color:var(--primary);box-shadow:0 0 0 3px rgba(99,102,241,.1)}
+.w-btn{
+  width:100%;padding:16px 32px;border-radius:16px;font-size:18px;font-weight:600;
+  background:linear-gradient(to left,var(--primary2),var(--purple));
+  color:#fff;cursor:pointer;transition:all .3s;display:flex;align-items:center;justify-content:center;gap:8px;
+}
+.w-btn:hover{transform:scale(1.02);box-shadow:0 0 30px rgba(99,102,241,.3)}
+.w-btn:disabled{opacity:.5;cursor:not-allowed;transform:none}
+.w-footer{margin-top:48px;font-size:13px;color:var(--text3);animation:slideUp .6s 1.5s both}
+/* ===== LAYOUT ===== */
+#app{height:100vh;display:flex;overflow:hidden;opacity:0;transition:opacity .5s}
 #app.show{opacity:1}
-
+/* ===== SIDEBAR ===== */
+#sidebar{
+  position:fixed;top:0;right:0;z-index:40;width:300px;height:100%;
+  background:var(--bg2);border-left:1px solid var(--border);
+  display:flex;flex-direction:column;transition:transform .3s cubic-bezier(.4,0,.2,1);
+}
+#sidebar.closed{transform:translateX(300px)}
+.sb-header{padding:16px;border-bottom:1px solid var(--border)}
+.sb-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.sb-close{background:none;color:var(--text2);cursor:pointer;padding:8px;border-radius:8px;font-size:20px}
+.sb-close:hover{background:var(--bg3);color:var(--text)}
+.sb-user{font-size:13px;color:var(--text2)}
+.sb-new{
+  width:100%;display:flex;align-items:center;justify-content:center;gap:8px;
+  padding:10px 16px;border-radius:12px;font-size:14px;font-weight:500;
+  background:linear-gradient(to left,var(--primary2),var(--purple));color:#fff;
+  cursor:pointer;transition:all .3s;margin-bottom:12px;
+}
+.sb-new:hover{opacity:.9}
+.sb-search{position:relative}
+.sb-search-icon{position:absolute;right:12px;top:50%;transform:translateY(-50%);color:var(--text3);font-size:14px}
+.sb-search-input{
+  width:100%;padding:8px 36px 8px 12px;background:var(--bg3);border:1px solid var(--border);
+  border-radius:10px;color:var(--text);font-size:13px;transition:border .3s;
+}
+.sb-search-input:focus{border-color:var(--primary)}
+.sb-list{flex:1;overflow-y:auto;padding:8px}
+.sb-item{
+  width:100%;display:flex;align-items:center;gap:10px;padding:10px 12px;
+  border-radius:10px;transition:all .2s;cursor:pointer;text-align:right;
+  background:transparent;border:1px solid transparent;color:var(--text);
+  font-size:14px;margin-bottom:2px;
+}
+.sb-item:hover{background:var(--bg3)}
+.sb-item.active{background:rgba(99,102,241,.1);border-color:rgba(99,102,241,.2)}
+.sb-item-icon{color:var(--text3);font-size:14px;flex-shrink:0}
+.sb-item-info{flex:1;min-width:0;text-align:right}
+.sb-item-title{font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sb-item-time{font-size:11px;color:var(--text3);margin-top:2px}
+.sb-item-actions{display:flex;gap:2px;opacity:0;transition:opacity .2s}
+.sb-item:hover .sb-item-actions{opacity:1}
+.sb-item-action{
+  background:none;color:var(--text3);cursor:pointer;padding:6px;border-radius:6px;font-size:13px;
+}
+.sb-item-action:hover{background:var(--bg4);color:var(--text)}
+.sb-item-action.danger:hover{background:rgba(239,68,68,.1);color:#ef4444}
+.sb-empty{text-align:center;padding:32px;color:var(--text3);font-size:13px}
+.sb-footer{padding:12px 16px;border-top:1px solid var(--border)}
+.sb-logout{
+  width:100%;display:flex;align-items:center;justify-content:center;gap:8px;
+  padding:10px;border-radius:10px;background:none;color:var(--text2);cursor:pointer;
+  font-size:13px;transition:all .2s;
+}
+.sb-logout:hover{background:rgba(239,68,68,.05);color:#ef4444}
+/* rename */
+.rename-bar{display:flex;align-items:center;gap:4px;padding:8px 12px}
+.rename-input{
+  flex:1;padding:6px 12px;background:var(--bg3);border:1px solid var(--primary);
+  border-radius:8px;color:var(--text);font-size:13px;
+}
+.rename-btn{background:none;cursor:pointer;padding:6px;border-radius:6px;font-size:14px}
+.rename-btn.ok{color:#22c55e}.rename-btn.ok:hover{background:var(--bg4)}
+.rename-btn.cancel{color:var(--text3)}.rename-btn.cancel:hover{background:var(--bg4)}
+/* ===== MAIN ===== */
+#main{flex:1;display:flex;flex-direction:column;transition:margin .3s}
+#sidebar.closed ~ #main{margin-right:0}
 /* ===== HEADER ===== */
-header{display:flex;align-items:center;justify-content:space-between;padding:0 16px;background:var(--bg2);border-bottom:1px solid var(--border);z-index:20;gap:8px}
-.h-left{display:flex;align-items:center;gap:10px;flex-shrink:0}
-.h-menu-btn{background:none;color:var(--text2);cursor:pointer;padding:6px;border-radius:8px;font-size:18px;min-width:34px;min-height:34px;display:flex;align-items:center;justify-content:center}
-.h-menu-btn:hover{background:var(--bg3);color:var(--text)}
-.h-brand{font-size:14px;font-weight:700;display:flex;align-items:center;gap:6px}
-.h-brand span{background:linear-gradient(135deg,var(--accent3),#a78bfa);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
-.h-center{flex:1;display:flex;align-items:center;justify-content:center;gap:12px}
-.h-status{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text3);padding:4px 12px;background:var(--bg3);border-radius:20px;transition:all .3s}
-.h-status.active{background:rgba(52,211,153,.1);color:var(--green)}
-.h-status-dot{width:6px;height:6px;border-radius:50%;background:var(--text3);transition:all .3s}
-.h-status.active .h-status-dot{background:var(--green);box-shadow:0 0 8px var(--green)}
-.h-status.busy .h-status-dot{background:var(--yellow);box-shadow:0 0 8px var(--yellow)}
-.h-kbd{font-size:10px;color:var(--text3);background:var(--bg4);padding:2px 6px;border-radius:4px}
-.h-right{display:flex;align-items:center;gap:4px;flex-shrink:0}
-.h-btn{background:none;color:var(--text2);cursor:pointer;padding:6px;border-radius:8px;font-size:16px;min-width:34px;min-height:34px;display:flex;align-items:center;justify-content:center}
-.h-btn:hover{background:var(--bg3);color:var(--text)}
-
-/* ===== MAIN LAYOUT ===== */
-#main{display:flex;overflow:hidden;height:100%;position:relative}
-/* Panels */
-#leftPanel,#rightPanel{display:none;flex-direction:column;background:var(--bg2);overflow:hidden}
-#leftPanel{border-left:1px solid var(--border);width:var(--panel-w);flex-shrink:0}
-#rightPanel{border-right:1px solid var(--border);width:var(--panel-w);flex-shrink:0}
-#centerChat{flex:1;display:flex;flex-direction:column;min-width:0;overflow:hidden}
-@media(min-width:1024px){
-  #leftPanel.show,#rightPanel.show{display:flex}
-  #main.grid-3 #centerChat{max-width:100%}
+header{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:12px 24px;border-bottom:1px solid var(--border);
 }
-/* Mobile panels */
-@media(max-width:1023px){
-  #leftPanel,#rightPanel{position:fixed;top:0;bottom:0;z-index:100;width:100%;max-width:100%;border-radius:0;display:none}
-  #leftPanel.show,#rightPanel.show{display:flex;animation:fadeIn .2s}
-  #leftPanel{left:0;right:auto}
-  #rightPanel{right:0}
-  .panel-overlay{position:fixed;inset:0;z-index:99;background:rgba(0,0,0,.5);display:none}
-  .panel-overlay.show{display:block}
+.h-left{display:flex;align-items:center;gap:12px}
+.h-toggle{background:none;color:var(--text2);cursor:pointer;padding:8px;border-radius:8px;font-size:18px}
+.h-toggle:hover{background:var(--bg3);color:var(--text)}
+.h-title{font-size:14px;font-weight:600;color:var(--text2)}
+.h-title span{background:linear-gradient(135deg,var(--primary3),var(--purple),var(--pink));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.h-right{display:flex;align-items:center;gap:8px}
+.theme-btn{
+  background:none;color:var(--text2);cursor:pointer;padding:8px;border-radius:8px;font-size:18px;
+  transition:all .2s;
 }
-
-/* ===== LEFT PANEL - ANALYSIS LOG ===== */
-#leftPanel .panel-header{display:flex;align-items:center;justify-content:space-between;padding:12px 14px;border-bottom:1px solid var(--border);flex-shrink:0}
-#leftPanel .panel-title{font-size:13px;font-weight:600;display:flex;align-items:center;gap:6px}
-#leftPanel .panel-close{background:none;color:var(--text3);cursor:pointer;padding:4px;border-radius:6px;font-size:16px}
-.panel-log{flex:1;overflow-y:auto;padding:8px 10px;font-size:12px;font-family:var(--mono);direction:ltr;text-align:left}
-.log-entry{padding:6px 8px;margin-bottom:4px;border-radius:6px;border-right:3px solid transparent;animation:fadeIn .3s;line-height:1.6}
-.log-entry.info{border-right-color:var(--blue);background:rgba(96,165,250,.05)}
-.log-entry.success{border-right-color:var(--green);background:rgba(52,211,153,.05)}
-.log-entry.warn{border-right-color:var(--yellow);background:rgba(251,191,36,.05)}
-.log-entry.error{border-right-color:var(--red);background:rgba(248,113,113,.05)}
-.log-entry.code{border-right-color:var(--accent);background:rgba(124,92,252,.05)}
-.log-time{color:var(--text3);font-size:10px;margin-left:6px}
-.log-msg{color:var(--text2)}
-.log-msg strong{color:var(--text)}
-.log-msg .hl{color:var(--accent3)}
-
-/* ===== RIGHT PANEL - CODE VIEWER ===== */
-#rightPanel .panel-header{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid var(--border);flex-shrink:0}
-#rightPanel .panel-title{font-size:13px;font-weight:600;display:flex;align-items:center;gap:6px;overflow:hidden}
-#rightPanel .panel-title span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:180px}
-#rightPanel .panel-actions{display:flex;align-items:center;gap:4px}
-#rightPanel .panel-close{background:none;color:var(--text3);cursor:pointer;padding:4px;border-radius:6px;font-size:16px}
-.code-viewer{flex:1;overflow:auto;direction:ltr;text-align:left;font-size:13px;line-height:1.7;font-family:var(--mono);background:var(--bg);padding:0}
-.code-viewer table{width:100%;border-collapse:collapse}
-.code-viewer td{vertical-align:top;padding:0;white-space:pre}
-.code-viewer .line-num{color:var(--text3);text-align:left;padding:0 12px 0 4px;user-select:none;width:1%;border-left:1px solid var(--border);background:var(--bg2);font-size:12px;min-width:48px}
-.code-viewer .line-code{padding:0 16px 0 8px;white-space:pre-wrap;word-break:break-all}
-.code-viewer .line-code .kw{color:#c792ea}
-.code-viewer .line-code .str{color:#c3e88d}
-.code-viewer .line-code .cm{color:#676e95;font-style:italic}
-.code-viewer .line-code .fn{color:#82aaff}
-.code-viewer .line-code .num{color:#f78c6c}
-.code-viewer .line-code .tp{color:#ffcb6b}
-.code-viewer .line-code .op{color:#89ddff}
-.code-viewer .line-highlight{background:rgba(124,92,252,.06)}
-#rightPanel .empty-state{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;color:var(--text3);padding:24px;text-align:center}
-#rightPanel .empty-state .icon{font-size:40px;margin-bottom:12px;opacity:.5}
-
+.theme-btn:hover{background:var(--bg3);color:var(--text)}
 /* ===== CHAT ===== */
-#chat{flex:1;display:flex;flex-direction:column;overflow:hidden}
-.chat-messages{flex:1;overflow-y:auto;padding:8px 0;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
-.chat-welcome{height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:0 20px}
+#chat{flex:1;display:flex;flex-direction:column;max-width:1024px;width:100%;margin:0 auto}
+.chat-messages{flex:1;overflow-y:auto;padding:16px 0}
+.chat-welcome{
+  height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:0 16px;
+}
 .chat-welcome-inner{text-align:center;max-width:480px}
-.chat-welcome-logo{width:56px;height:56px;margin:0 auto 20px;border-radius:12px;padding:2px;background:linear-gradient(135deg,var(--accent),#7c3aed,#ec4899)}
-.chat-welcome-logo-inner{width:100%;height:100%;border-radius:10px;background:var(--bg);display:flex;align-items:center;justify-content:center;font-size:24px}
-.chat-welcome-title{font-size:20px;font-weight:700;margin-bottom:10px}
-.chat-welcome-title span{background:linear-gradient(135deg,var(--accent3),#a78bfa,#f472b6);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
-.chat-welcome-desc{color:var(--text2);line-height:1.8;font-size:14px}
-.chat-welcome-desc strong{color:var(--accent3)}
-.chat-welcome-features{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-top:16px}
-.chat-welcome-feat{font-size:12px;padding:6px 14px;background:var(--bg3);border-radius:20px;color:var(--text2);border:1px solid var(--border)}
-
-/* ===== MESSAGES ===== */
-.msg{display:flex;align-items:flex-start;gap:8px;padding:5px 14px;animation:msgIn .3s ease-out}
+.chat-welcome-logo{
+  width:64px;height:64px;margin:0 auto 24px;border-radius:14px;
+  padding:2px;background:linear-gradient(135deg,var(--primary),var(--purple),var(--pink));
+}
+.chat-welcome-logo-inner{
+  width:100%;height:100%;border-radius:12px;background:var(--bg);
+  display:flex;align-items:center;justify-content:center;font-size:28px;
+}
+.chat-welcome-title{font-size:24px;font-weight:700;margin-bottom:12px}
+.chat-welcome-title span{background:linear-gradient(135deg,var(--primary3),var(--purple),var(--pink));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.chat-welcome-desc{color:var(--text2);line-height:1.8}
+.chat-welcome-desc strong{color:var(--primary3)}
+/* messages */
+.msg{display:flex;align-items:flex-start;gap:10px;padding:8px 16px;animation:msgIn .3s ease-out}
 .msg.user{flex-direction:row-reverse}
-.msg-avatar{width:28px;height:28px;min-width:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:12px;color:#fff}
-.msg-avatar.user{background:linear-gradient(135deg,var(--accent2),#3b82f6)}
-.msg-avatar.ai{background:linear-gradient(135deg,var(--accent),#7c3aed)}
-.msg-content{max-width:88%}
-.msg-bubble{border-radius:var(--r2);padding:10px 14px;line-height:1.65;font-size:14px;animation:msgIn .3s ease-out}
-.msg.user .msg-bubble{background:rgba(124,92,252,.08);border:1px solid rgba(124,92,252,.12);border-bottom-left-radius:4px;color:var(--text)}
-.msg.ai .msg-bubble{background:var(--bg2);border:1px solid var(--border);border-bottom-right-radius:4px}
-.msg-actions{display:flex;align-items:center;gap:4px;margin-top:3px;padding:0 4px}
-@media(hover:hover){.msg-actions{opacity:0;transition:opacity .2s}.msg:hover .msg-actions{opacity:1}}
-.msg-time{font-size:10px;color:var(--text3);margin-left:8px}
-.msg-action{background:none;color:var(--text3);cursor:pointer;padding:4px;border-radius:4px;font-size:13px;min-width:26px;min-height:26px;display:inline-flex;align-items:center;justify-content:center}
-.msg-action:active{background:var(--bg3)}
-/* Markdown */
-.msg-bubble p{margin-bottom:6px}.msg-bubble p:last-child{margin-bottom:0}
-.msg-bubble ul,.msg-bubble ol{padding-right:18px;margin-bottom:6px}
-.msg-bubble li{margin-bottom:3px}
-.msg-bubble h1,.msg-bubble h2,.msg-bubble h3,.msg-bubble h4{margin:14px 0 6px;font-weight:700}
-.msg-bubble h1{font-size:18px}.msg-bubble h2{font-size:16px}.msg-bubble h3{font-size:15px}
-.msg-bubble blockquote{border-right:3px solid var(--accent);padding-right:10px;margin:6px 0;color:var(--text2);font-style:italic}
-.msg-bubble table{width:100%;border-collapse:collapse;margin:6px 0;font-size:13px}
-.msg-bubble th,.msg-bubble td{border:1px solid var(--border);padding:6px 8px;text-align:right}
+.msg-avatar{
+  width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+  flex-shrink:0;font-size:14px;color:#fff;
+}
+.msg-avatar.user{background:linear-gradient(135deg,var(--primary2),#2563eb)}
+.msg-avatar.ai{background:linear-gradient(135deg,var(--primary),var(--purple))}
+.msg-content{max-width:85%}
+.msg-bubble{
+  border-radius:16px;padding:12px 16px;line-height:1.7;font-size:15px;
+  animation:msgIn .3s ease-out;
+}
+.msg.user .msg-bubble{
+  background:rgba(99,102,241,.12);border:1px solid rgba(99,102,241,.2);
+  border-bottom-left-radius:4px;color:var(--text);
+}
+.msg.ai .msg-bubble{
+  background:var(--bg2);border:1px solid var(--border);border-bottom-right-radius:4px;
+}
+.msg-actions{
+  display:flex;align-items:center;gap:4px;margin-top:4px;
+  opacity:0;transition:opacity .2s;padding:0 4px;
+}
+.msg:hover .msg-actions{opacity:1}
+.msg-time{font-size:11px;color:var(--text3);margin-left:8px}
+.msg-action{
+  background:none;color:var(--text3);cursor:pointer;padding:4px;border-radius:4px;font-size:13px;
+}
+.msg-action:hover{background:var(--bg3);color:var(--text)}
+/* markdown inside messages */
+.msg-bubble p{margin-bottom:8px}
+.msg-bubble p:last-child{margin-bottom:0}
+.msg-bubble ul,.msg-bubble ol{padding-right:20px;margin-bottom:8px}
+.msg-bubble li{margin-bottom:4px}
+.msg-bubble h1,.msg-bubble h2,.msg-bubble h3,.msg-bubble h4{margin:16px 0 8px;font-weight:700}
+.msg-bubble h1{font-size:22px}.msg-bubble h2{font-size:19px}.msg-bubble h3{font-size:17px}
+.msg-bubble blockquote{
+  border-right:3px solid var(--primary);padding-right:12px;margin:8px 0;
+  color:var(--text2);font-style:italic;
+}
+.msg-bubble table{width:100%;border-collapse:collapse;margin:8px 0}
+.msg-bubble th,.msg-bubble td{border:1px solid var(--border);padding:8px 12px;text-align:right}
 .msg-bubble th{background:var(--bg3);font-weight:600}
-.msg-bubble a{color:var(--accent3);text-decoration:underline}
-.msg-bubble code{background:var(--bg3);padding:1px 5px;border-radius:3px;font-size:12px;font-family:var(--mono)}
-.msg-bubble pre{background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:12px;overflow-x:auto;margin:6px 0;direction:ltr;text-align:left;font-size:12px;font-family:var(--mono)}
-.msg-bubble pre code{background:none;padding:0;font-size:12px}
-.msg-bubble hr{border:none;border-top:1px solid var(--border);margin:10px 0}
-
-/* ===== FILE CARDS IN CHAT ===== */
-.file-card{display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--bg3);border:1px solid var(--border);border-radius:10px;margin-top:6px;cursor:pointer;transition:all .2s;position:relative}
-.file-card:hover{background:var(--bg4);border-color:var(--accent)}
-.file-card .fc-icon{font-size:22px;flex-shrink:0;width:36px;height:36px;display:flex;align-items:center;justify-content:center;background:var(--bg4);border-radius:8px}
-.file-card .fc-info{flex:1;min-width:0}
-.file-card .fc-name{font-size:13px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.file-card .fc-size{font-size:11px;color:var(--text3);margin-top:1px}
-.file-card .fc-menu{position:relative}
-.file-card .fc-menu-btn{background:none;color:var(--text3);cursor:pointer;padding:6px;border-radius:6px;font-size:18px;line-height:1}
-.file-card .fc-menu-btn:hover{background:var(--bg5);color:var(--text)}
-.file-card .fc-dropdown{position:absolute;bottom:100%;left:0;margin-bottom:4px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:4px;min-width:140px;box-shadow:0 10px 30px rgba(0,0,0,.4);z-index:10;display:none;direction:rtl;text-align:right}
-.file-card .fc-dropdown.show{display:block}
-.file-card .fc-dropdown button{display:flex;align-items:center;gap:8px;width:100%;padding:8px 12px;border-radius:6px;background:none;color:var(--text2);cursor:pointer;font-size:12px;transition:all .1s;text-align:right}
-.file-card .fc-dropdown button:hover{background:var(--bg3);color:var(--text)}
-
-/* ===== TYPING ===== */
-.typing{display:flex;align-items:center;gap:8px;padding:5px 14px;animation:fadeIn .3s}
-.typing-dots{display:flex;align-items:center;gap:3px;padding:10px 16px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--r2);border-bottom-right-radius:4px}
-.typing-dot{width:7px;height:7px;border-radius:50%;background:var(--accent);animation:bounce 1.4s ease-in-out infinite}
+.msg-bubble a{color:var(--primary3);text-decoration:underline}
+.msg-bubble code{
+  background:var(--bg3);padding:2px 6px;border-radius:4px;font-size:13px;font-family:monospace;
+}
+.msg-bubble pre{
+  background:var(--bg3);border:1px solid var(--border);border-radius:8px;
+  padding:16px;overflow-x:auto;margin:8px 0;direction:ltr;text-align:left;
+}
+.msg-bubble pre code{background:none;padding:0}
+.msg-bubble hr{border:none;border-top:1px solid var(--border);margin:16px 0}
+.msg-bubble img{max-width:100%;border-radius:8px;margin:8px 0}
+.msg-files{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+.msg-file{
+  display:flex;align-items:center;gap:8px;padding:6px 12px;
+  background:var(--bg3);border-radius:8px;font-size:13px;border:1px solid var(--border);
+}
+.msg-file .name{color:var(--text2);max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.msg-file .size{color:var(--text3);font-size:11px}
+.msg-imgs{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+.msg-imgs img{max-width:180px;max-height:180px;border-radius:8px;object-fit:cover;border:1px solid var(--border)}
+/* typing */
+.typing{display:flex;align-items:center;gap:12px;padding:8px 16px;animation:fadeIn .3s}
+.typing-dots{display:flex;align-items:center;gap:4px;padding:12px 20px;background:var(--bg2);border:1px solid var(--border);border-radius:16px;border-bottom-right-radius:4px}
+.typing-dot{width:8px;height:8px;border-radius:50%;background:var(--primary);animation:bounce 1.4s ease-in-out infinite}
 .typing-dot:nth-child(2){animation-delay:.2s}
 .typing-dot:nth-child(3){animation-delay:.4s}
-
-/* ===== EDIT BAR ===== */
-.edit-bar{display:flex;align-items:center;justify-content:space-between;padding:6px 14px;background:rgba(124,92,252,.08);border-top:1px solid rgba(124,92,252,.15);flex-shrink:0;font-size:12px}
-.edit-bar-label{color:var(--accent3);display:flex;align-items:center;gap:5px}
-.edit-bar-cancel{background:none;color:var(--text3);cursor:pointer;padding:4px;border-radius:4px;font-size:14px}
-
 /* ===== INPUT ===== */
-.chat-input-wrap{padding:6px 12px calc(var(--safe-bottom)+6px);flex-shrink:0}
-.chat-input-inner{max-width:768px;margin:0 auto;background:var(--bg2);border:1px solid var(--border);border-radius:var(--r2);transition:border .2s}
-.chat-input-inner:focus-within{border-color:var(--accent)}
-.chat-input-row{display:flex;align-items:flex-end;gap:4px;padding:5px}
-.chat-input-actions{display:flex;align-items:center;gap:2px}
-.chat-input-btn{background:none;color:var(--text3);cursor:pointer;padding:6px;border-radius:6px;font-size:16px;min-width:32px;min-height:32px;display:flex;align-items:center;justify-content:center}
-.chat-input-btn:active{background:var(--bg3);color:var(--text)}
-.chat-input-field{flex:1;background:transparent;color:var(--text);resize:none;padding:6px 8px;font-size:14px;line-height:1.5;max-height:100px;min-height:22px}
-.chat-send-btn{padding:8px 10px;border-radius:8px;cursor:pointer;transition:all .3s;font-size:16px;background:var(--bg3);color:var(--text3);flex-shrink:0;min-width:38px;min-height:38px;display:flex;align-items:center;justify-content:center}
-.chat-send-btn.active{background:linear-gradient(to left,var(--accent2),#7c3aed);color:#fff}
-.chat-send-btn:disabled{opacity:.4;cursor:default}
-.chat-footer{text-align:center;padding:4px 12px 6px;font-size:10px;color:var(--text3)}
-
-/* ===== UPLOAD MODAL ===== */
-.overlay{position:fixed;inset:0;z-index:150;background:rgba(0,0,0,.6);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);display:none}
-.overlay.show{display:block}
-.modal{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:151;width:calc(100% - 32px);max-width:480px;max-height:90vh;overflow-y:auto;background:var(--bg2);border:1px solid var(--border);border-radius:var(--r3);padding:22px;box-shadow:0 25px 60px rgba(0,0,0,.4);display:none;animation:fadeIn .2s}
-.modal.show{display:block}
-.modal-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px}
-.modal-title{font-size:17px;font-weight:600}
-.modal-close{background:none;color:var(--text3);cursor:pointer;padding:6px;border-radius:6px;font-size:18px}
-.modal-close:hover{background:var(--bg3)}
-.dropzone{border:2px dashed var(--border);border-radius:12px;padding:28px 20px;text-align:center;transition:all .3s;cursor:pointer}
-.dropzone.dragover{border-color:var(--accent);background:rgba(124,92,252,.04)}
-.dropzone-icon{font-size:32px;margin-bottom:6px}
-.dropzone-text{color:var(--text2);font-size:14px;margin-bottom:2px}
-.dropzone-hint{color:var(--text3);font-size:12px;margin-bottom:10px}
-.dropzone-btns{display:flex;justify-content:center;gap:10px}
-.dropzone-btn{padding:8px 16px;background:var(--bg3);border-radius:8px;color:var(--text2);cursor:pointer;font-size:12px;transition:all .2s;display:flex;align-items:center;gap:5px;min-height:36px}
-.dropzone-btn:active{background:var(--bg4);color:var(--text)}
-.sel-files{margin-top:12px;max-height:160px;overflow-y:auto;display:flex;flex-direction:column;gap:5px}
-.sel-files .sf{display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--bg3);border-radius:8px;border:1px solid var(--border)}
-.sel-files .sf-icon{font-size:14px;flex-shrink:0}
-.sel-files .sf-info{flex:1;min-width:0}
-.sel-files .sf-name{font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.sel-files .sf-size{font-size:10px;color:var(--text3)}
-.sel-files .sf-rm{background:none;color:var(--text3);cursor:pointer;padding:4px;border-radius:4px;font-size:14px}
-.sel-files .sf-rm:active{color:var(--red)}
-.modal-err{margin-top:10px;padding:8px 10px;background:rgba(248,113,113,.1);border:1px solid rgba(248,113,113,.15);border-radius:8px;font-size:12px;color:var(--red);display:none}
-.modal-err.show{display:block}
-.modal-actions{display:flex;gap:10px;margin-top:14px}
-.modal-btn{flex:1;padding:10px;border-radius:10px;font-size:13px;font-weight:500;cursor:pointer;transition:all .2s;min-height:42px}
-.modal-btn.secondary{background:var(--bg3);color:var(--text2)}
-.modal-btn.secondary:active{background:var(--bg4)}
-.modal-btn.primary{background:linear-gradient(to left,var(--accent2),#7c3aed);color:#fff}
-.modal-btn.primary:active{opacity:.85}
-.modal-btn:disabled{opacity:.45;cursor:default}
-@media(max-width:639px){.modal{top:auto;bottom:0;left:0;right:0;transform:none;width:100%;border-radius:var(--r3) var(--r3) 0 0;max-height:92vh;max-width:none;padding:18px}}
-
-/* ===== MOBILE TOGGLE ===== */
-@media(max-width:1023px){
-  .mobile-panel-toggle{display:flex;align-items:center;gap:6px;padding:5px 12px;background:var(--bg3);border-radius:8px;cursor:pointer;font-size:12px;color:var(--text2);border:1px solid var(--border);min-height:32px}
-  .mobile-panel-toggle:active{background:var(--bg4)}
+.chat-input-wrap{padding:8px 16px 16px}
+.chat-input-inner{max-width:768px;margin:0 auto;background:var(--bg2);border:1px solid var(--border);border-radius:16px;box-shadow:var(--shadow)}
+.chat-input-row{display:flex;align-items:flex-end;gap:8px;padding:8px}
+.chat-input-actions{display:flex;align-items:center;gap:4px;padding-bottom:2px}
+.chat-input-btn{
+  background:none;color:var(--text3);cursor:pointer;padding:8px;border-radius:8px;font-size:18px;
+  transition:all .2s;
 }
-@media(min-width:1024px){.mobile-panel-toggle{display:none}}
-
-/* ===== TOAST ===== */
-.toast{position:fixed;bottom:80px;left:50%;transform:translateX(-50%);z-index:300;background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:8px 16px;font-size:12px;color:var(--text2);box-shadow:0 8px 24px rgba(0,0,0,.3);animation:fadeIn .2s;display:none;white-space:nowrap}
-.toast.show{display:block}
-
+.chat-input-btn:hover{background:var(--bg3);color:var(--text)}
+.chat-input-field{
+  flex:1;background:transparent;color:var(--text);resize:none;padding:8px 12px;
+  font-size:15px;line-height:1.5;max-height:150px;min-height:24px;
+}
+.chat-send-btn{
+  padding:10px;border-radius:10px;cursor:pointer;transition:all .3s;font-size:18px;
+  background:var(--bg3);color:var(--text3);border:none;flex-shrink:0;
+}
+.chat-send-btn.active{
+  background:linear-gradient(to left,var(--primary2),var(--purple));color:#fff;box-shadow:0 0 20px rgba(99,102,241,.2);
+}
+.chat-send-btn:disabled{opacity:.5;cursor:not-allowed}
+.chat-footer{text-align:center;padding:8px 16px 12px;font-size:11px;color:var(--text3)}
+/* edit mode */
+.edit-bar{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:8px 16px;background:rgba(99,102,241,.08);border-top:1px solid rgba(99,102,241,.2);
+}
+.edit-bar-label{font-size:13px;color:var(--primary3);display:flex;align-items:center;gap:6px}
+.edit-bar-cancel{background:none;color:var(--text3);cursor:pointer;padding:4px;border-radius:4px;font-size:16px}
+.edit-bar-cancel:hover{color:var(--text)}
+/* ===== FILE UPLOAD OVERLAY ===== */
+.overlay{position:fixed;inset:0;z-index:50;background:rgba(0,0,0,.6);backdrop-filter:blur(4px);display:none}
+.overlay.show{display:block}
+.modal{
+  position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:51;
+  width:calc(100% - 32px);max-width:520px;background:var(--bg2);border:1px solid var(--border);
+  border-radius:20px;padding:24px;box-shadow:0 25px 50px rgba(0,0,0,.3);display:none;
+}
+.modal.show{display:block}
+.modal-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:24px}
+.modal-title{font-size:18px;font-weight:600}
+.modal-close{background:none;color:var(--text3);cursor:pointer;padding:6px;border-radius:6px;font-size:20px}
+.modal-close:hover{background:var(--bg3);color:var(--text)}
+.dropzone{
+  border:2px dashed var(--border);border-radius:12px;padding:40px 24px;
+  text-align:center;transition:all .3s;cursor:pointer;
+}
+.dropzone.dragover{border-color:var(--primary);background:rgba(99,102,241,.05)}
+.dropzone-icon{font-size:40px;margin-bottom:12px}
+.dropzone-text{color:var(--text2);margin-bottom:4px}
+.dropzone-or{color:var(--text3);font-size:13px;margin-bottom:12px}
+.dropzone-btns{display:flex;justify-content:center;gap:12px}
+.dropzone-btn{
+  padding:8px 16px;background:var(--bg3);border-radius:8px;color:var(--text2);cursor:pointer;
+  font-size:13px;transition:all .2s;display:flex;align-items:center;gap:6px;
+}
+.dropzone-btn:hover{background:var(--bg4);color:var(--text)}
+.allowed-types{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px}
+.allowed-type{padding:4px 8px;background:var(--bg3);border-radius:4px;font-size:11px;color:var(--text3)}
+.modal-error{
+  margin-top:12px;padding:10px 12px;background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.2);
+  border-radius:10px;font-size:13px;color:#ef4444;display:none;
+}
+.modal-error.show{display:block}
+.selected-files{margin-top:16px;max-height:200px;overflow-y:auto;display:flex;flex-direction:column;gap:6px}
+.sfile{
+  display:flex;align-items:center;gap:10px;padding:8px 12px;
+  background:var(--bg3);border-radius:10px;border:1px solid var(--border);
+}
+.sfile-icon{font-size:16px;flex-shrink:0}
+.sfile-info{flex:1;min-width:0}
+.sfile-name{font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sfile-size{font-size:11px;color:var(--text3)}
+.sfile-remove{background:none;color:var(--text3);cursor:pointer;padding:4px;border-radius:4px;font-size:16px}
+.sfile-remove:hover{color:#ef4444}
+.modal-actions{display:flex;gap:12px;margin-top:20px}
+.modal-btn{
+  flex:1;padding:12px;border-radius:12px;font-size:14px;font-weight:500;cursor:pointer;transition:all .3s;
+}
+.modal-btn.secondary{background:var(--bg3);color:var(--text2)}
+.modal-btn.secondary:hover{background:var(--bg4);color:var(--text)}
+.modal-btn.primary{
+  background:linear-gradient(to left,var(--primary2),var(--purple));color:#fff;
+}
+.modal-btn.primary:hover{opacity:.9}
+.modal-btn:disabled{opacity:.5;cursor:not-allowed}
 /* ===== RESPONSIVE ===== */
+@media(max-width:1023px){
+  #sidebar{width:280px}
+  #sidebar.closed{transform:translateX(280px)}
+  #main{margin-right:0!important}
+}
 @media(max-width:639px){
-  .msg-content{max-width:92%}
-  .msg-bubble{font-size:13px;padding:8px 10px}
-  .chat-input-wrap{padding:4px 6px calc(var(--safe-bottom)+4px)}
-  .chat-input-field{font-size:13px}
-  header{padding:0 10px}
-  .h-center{display:none}
+  .w-title{font-size:30px}
+  .w-desc{font-size:15px}
+  .w-logo{width:72px;height:72px}
+  .w-logo-inner{font-size:30px}
+  .chat-input-wrap{padding:4px 8px 12px}
+  .msg{padding:6px 12px}
+  .msg-content{max-width:90%}
+  .msg-bubble{font-size:14px;padding:10px 12px}
+  header{padding:8px 16px}
 }
 </style>
 </head>
 <body>
 
-<!-- WELCOME -->
+<!-- ===== WELCOME SCREEN ===== -->
 <div id="welcome">
   <div class="w-particles" id="particles"></div>
   <div class="w-grid"></div>
   <div class="w-content">
     <div class="w-logo"><div class="w-logo-inner">✦</div></div>
     <h1 class="w-title"><span>NovaMind AI</span></h1>
-    <p class="w-desc">مساعد برمجة ذكي - حلل، عدّل، وحسّن أي كود<br>يدعم جميع لغات البرمجة والملفات</p>
-    <div class="w-form">
+    <p class="w-desc">مساعدك الذكي للبرمجة، الدراسة، تحليل الصور والملفات،<br>والكتابة والإجابة عن جميع أسئلتك</p>
+    <div class="w-form" id="welcomeForm">
       <input type="text" class="w-input" id="nameInput" placeholder="ما اسمك؟" maxlength="30" autofocus>
-      <button class="w-btn" id="startBtn" disabled><span>ابدأ</span> ←</button>
+      <button class="w-btn" id="startBtn"><span>ابدأ</span> ←</button>
     </div>
     <p class="w-footer">بتطوير Mahmoud Ahmed Saeed</p>
   </div>
 </div>
 
-<!-- TOAST -->
-<div class="toast" id="toast"></div>
-
-<!-- APP -->
+<!-- ===== APP ===== -->
 <div id="app">
-  <header>
-    <div class="h-left">
-      <button class="h-menu-btn" id="toggleLeft" title="لوحة التحليل">📊</button>
-      <span class="h-brand"><span>✦ NovaMind</span></span>
+  <!-- Sidebar -->
+  <aside id="sidebar" class="closed">
+    <div class="sb-header">
+      <div class="sb-top">
+        <button class="sb-close" id="sidebarClose">✕</button>
+        <span class="sb-user" id="sidebarUser"></span>
+      </div>
+      <button class="sb-new" id="newChatBtn">＋ محادثة جديدة</button>
+      <div class="sb-search">
+        <span class="sb-search-icon">🔍</span>
+        <input type="text" class="sb-search-input" id="searchChats" placeholder="بحث في المحادثات...">
+      </div>
     </div>
-    <div class="h-center">
-      <div class="h-status" id="statusBadge"><span class="h-status-dot"></span><span id="statusText">جاهز</span></div>
-      <span class="h-kbd" style="display:none">Ctrl+/</span>
+    <div class="sb-list" id="chatList"></div>
+    <div class="sb-footer">
+      <button class="sb-logout" id="logoutBtn">← تسجيل الخروج</button>
     </div>
-    <div class="h-right">
-      <button class="h-btn" id="toggleRight" title="عارض الكود (Ctrl+E)">📄</button>
-      <button class="h-btn" id="themeToggle">☀️</button>
-    </div>
-  </header>
+  </aside>
 
+  <!-- Main -->
   <div id="main">
-    <!-- LEFT: Analysis Log -->
-    <div id="leftPanel">
-      <div class="panel-header">
-        <div class="panel-title">📊 سجل التحليل</div>
-        <button class="panel-close" id="closeLeft">✕</button>
+    <header>
+      <div class="h-left">
+        <button class="h-toggle" id="sidebarToggle">◈</button>
+        <h1 class="h-title"><span>NovaMind AI</span></h1>
       </div>
-      <div class="panel-log" id="analysisLog"><div style="text-align:center;color:var(--text3);padding:20px;font-family:var(--font);font-size:12px">سجل التحليل يظهر هنا<br>عندما يبدأ AI بالعمل</div></div>
-    </div>
+      <div class="h-right">
+        <button class="theme-btn" id="themeToggle">☀️</button>
+      </div>
+    </header>
 
-    <!-- CENTER: Chat -->
-    <div id="centerChat">
-      <div id="chat">
-        <div class="chat-messages" id="chatMessages"></div>
-        <div class="edit-bar" id="editBar" style="display:none">
-          <span class="edit-bar-label">✎ تعديل الرسالة</span>
-          <button class="edit-bar-cancel" id="editCancel">✕</button>
-        </div>
-        <div class="chat-input-wrap">
-          <div class="chat-input-inner">
-            <div class="chat-input-row">
-              <div class="chat-input-actions">
-                <button class="chat-input-btn" id="fileBtn" title="رفع ملف">📎</button>
-                <button class="chat-input-btn" id="imageBtn" title="رفع صورة">🖼</button>
-              </div>
-              <textarea class="chat-input-field" id="chatInput" rows="1" placeholder="اكتب رسالتك..." dir="rtl"></textarea>
-              <button class="chat-send-btn" id="sendBtn" disabled>➤</button>
+    <!-- Chat -->
+    <div id="chat">
+      <div class="chat-messages" id="chatMessages"></div>
+
+      <!-- Edit bar -->
+      <div class="edit-bar" id="editBar" style="display:none">
+        <span class="edit-bar-label">✎ تعديل الرسالة</span>
+        <button class="edit-bar-cancel" id="editCancel">✕</button>
+      </div>
+
+      <!-- Input -->
+      <div class="chat-input-wrap">
+        <div class="chat-input-inner">
+          <div class="chat-input-row" id="inputRow">
+            <div class="chat-input-actions">
+              <button class="chat-input-btn" id="fileBtn" title="رفع ملف">📎</button>
+              <button class="chat-input-btn" id="imageBtn" title="رفع صورة">🖼</button>
             </div>
+            <textarea class="chat-input-field" id="chatInput" rows="1" placeholder="اكتب رسالتك هنا..."></textarea>
+            <button class="chat-send-btn" id="sendBtn" disabled>➤</button>
           </div>
+          <div class="chat-footer">NovaMind AI يمكنه ارتكاب الأخطاء. يُرجى التحقق من المعلومات المهمة.</div>
         </div>
       </div>
-    </div>
-
-    <!-- RIGHT: Code Viewer -->
-    <div id="rightPanel">
-      <div class="panel-header">
-        <div class="panel-title">📄 <span id="codeFileName">عارض الكود</span></div>
-        <div class="panel-actions">
-          <button class="h-btn" id="codeDownload" title="تحميل" style="font-size:14px">⬇</button>
-          <button class="panel-close" id="closeRight">✕</button>
-        </div>
-      </div>
-      <div class="empty-state" id="codeEmpty"><div class="icon">📄</div><div>اختر ملفاً لعرض الكود</div></div>
-      <div class="code-viewer" id="codeViewer" style="display:none"></div>
     </div>
   </div>
 </div>
 
-<!-- UPLOAD MODAL -->
+<!-- ===== FILE UPLOAD MODAL ===== -->
 <div class="overlay" id="uploadOverlay"></div>
 <div class="modal" id="uploadModal">
-  <div class="modal-header"><h2 class="modal-title">رفع ملف</h2><button class="modal-close" id="uploadClose">✕</button></div>
+  <div class="modal-header">
+    <h2 class="modal-title">رفع الملفات</h2>
+    <button class="modal-close" id="uploadClose">✕</button>
+  </div>
   <div class="dropzone" id="dropzone">
     <div class="dropzone-icon">📤</div>
     <p class="dropzone-text">اسحب وأفلت الملفات هنا</p>
-    <p class="dropzone-hint">يدعم جميع أنواع الملفات - Python, JS, HTML, CSS, وغيرها</p>
+    <p class="dropzone-or">أو</p>
     <div class="dropzone-btns">
-      <button class="dropzone-btn" id="filesBtn">📄 اختيار ملفات</button>
+      <button class="dropzone-btn" id="filesBtn">📄 ملفات</button>
+      <button class="dropzone-btn" id="imagesBtn">🖼 صور</button>
     </div>
-    <input type="file" id="fileInput" multiple style="display:none">
+    <input type="file" id="fileInput" multiple style="display:none" accept=".pdf,.doc,.docx,.txt,.xls,.xlsx,.csv,.json,.zip">
+    <input type="file" id="imageInput" multiple style="display:none" accept="image/png,image/jpeg,image/webp,image/gif">
   </div>
-  <div class="modal-err" id="uploadError"></div>
-  <div class="sel-files" id="selFiles"></div>
+  <div class="allowed-types">
+    <span class="allowed-type">PDF</span><span class="allowed-type">DOC</span><span class="allowed-type">DOCX</span>
+    <span class="allowed-type">TXT</span><span class="allowed-type">XLS</span><span class="allowed-type">XLSX</span>
+    <span class="allowed-type">CSV</span><span class="allowed-type">JSON</span><span class="allowed-type">ZIP</span>
+    <span class="allowed-type">PNG</span><span class="allowed-type">JPG</span><span class="allowed-type">WebP</span><span class="allowed-type">GIF</span>
+  </div>
+  <div class="modal-error" id="uploadError"></div>
+  <div class="selected-files" id="selectedFiles"></div>
   <div class="modal-actions">
     <button class="modal-btn secondary" id="uploadCancel">إلغاء</button>
-    <button class="modal-btn primary" id="uploadConfirm" disabled>رفع وتحليل (0)</button>
+    <button class="modal-btn primary" id="uploadConfirm" disabled>رفع (0)</button>
   </div>
 </div>
-<input type="file" id="hiddenFileInput" multiple style="display:none">
+
+<!-- hidden image picker trigger -->
+<input type="file" id="hiddenImageInput" multiple style="display:none" accept="image/png,image/jpeg,image/webp,image/gif">
 
 <script>
-const GROQ_API_KEY='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';
-const GROQ_MODEL='openai/gpt-oss-120b';
-const SITE_NAME='NovaMind AI';
-const MAX_FILE_SIZE=200*1024*1024;
+// ===== CONFIG =====
+const GROQ_API_KEY = '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';
+const GROQ_MODEL = 'openai/gpt-oss-120b';
+const SITE_NAME = 'NovaMind AI';
+const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20MB
+const ALLOWED_TYPES = [
+  'application/pdf','application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/vnd.ms-excel',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'text/csv','text/plain','application/json',
+  'application/zip','application/x-zip-compressed',
+  'image/png','image/jpeg','image/webp','image/gif'
+];
 
 // ===== STATE =====
-let state={
-  userName:'',theme:'dark',conversations:[],currentId:null,messages:[],
-  isLoading:false,streamingContent:'',editIndex:-1,
-  currentFile:null, // {name,content,size,type}
+let state = {
+  userName: '',
+  theme: 'dark',
+  conversations: [],
+  currentId: null,
+  messages: [],
+  isLoading: false,
+  sidebarOpen: false,
+  streamingContent: '',
+  pendingFiles: [],
+  pendingImages: [],
+  editIndex: -1,
+  editContent: '',
+  abortController: null,
 };
-let logEntries=[];
+
+// ===== DOM REFS =====
+const $ = id => document.getElementById(id);
+const welcome = $('welcome');
+const app = $('app');
+const sidebar = $('sidebar');
+const nameInput = $('nameInput');
+const startBtn = $('startBtn');
+const sidebarUser = $('sidebarUser');
+const chatList = $('chatList');
+const chatMessages = $('chatMessages');
+const chatInput = $('chatInput');
+const sendBtn = $('sendBtn');
+const sidebarToggle = $('sidebarToggle');
+const sidebarClose = $('sidebarClose');
+const newChatBtn = $('newChatBtn');
+const searchChats = $('searchChats');
+const logoutBtn = $('logoutBtn');
+const themeToggle = $('themeToggle');
+const editBar = $('editBar');
+const editCancel = $('editCancel');
+const fileBtn = $('fileBtn');
+const imageBtn = $('imageBtn');
+const uploadOverlay = $('uploadOverlay');
+const uploadModal = $('uploadModal');
+const uploadClose = $('uploadClose');
+const uploadCancel = $('uploadCancel');
+const uploadConfirm = $('uploadConfirm');
+const dropzone = $('dropzone');
+const fileInput = $('fileInput');
+const imageInput = $('imageInput');
+const filesBtn = $('filesBtn');
+const imagesBtn = $('imagesBtn');
+const selectedFilesDiv = $('selectedFiles');
+const uploadError = $('uploadError');
+const hiddenImageInput = $('hiddenImageInput');
 
 // ===== UTILITY =====
-const $=id=>document.getElementById(id);
-const isMobile=()=>window.innerWidth<1024;
 function genId(){return Date.now().toString(36)+Math.random().toString(36).substring(2)}
-function fmtTime(ts){const d=new Date(ts),n=new Date();const dy=Math.floor((n-d)/86400000);if(dy===0)return d.toLocaleTimeString('ar-SA',{hour:'2-digit',minute:'2-digit'});if(dy===1)return'أمس';if(dy<7)return d.toLocaleDateString('ar-SA',{weekday:'long'});return d.toLocaleDateString('ar-SA',{month:'short',day:'numeric'})}
-function trunc(t,n){return t.length<=n?t:t.substring(0,n)+'...'}
-function fmtSize(b){if(!b)return'0 B';const k=1024,s=['B','KB','MB','GB'];const i=Math.floor(Math.log(b)/Math.log(k));return parseFloat((b/Math.pow(k,i)).toFixed(1))+' '+s[i]}
-function esc(t){const d=document.createElement('div');d.textContent=t;return d.innerHTML}
-function save(){try{localStorage.setItem('nm-state',JSON.stringify({conversations:state.conversations,currentId:state.currentId,theme:state.theme,userName:state.userName}))}catch(e){}}
-function load(){try{const d=JSON.parse(localStorage.getItem('nm-state'));if(d){state.conversations=d.conversations||[];state.currentId=d.currentId||null;state.theme=d.theme||'dark';state.userName=d.userName||''}}catch(e){}}
+function fmtTime(ts){
+  const d=new Date(ts),n=new Date();
+  const days=Math.floor((n-d)/(86400000));
+  if(days===0)return d.toLocaleTimeString('ar-SA',{hour:'2-digit',minute:'2-digit'});
+  if(days===1)return 'أمس';
+  if(days<7)return d.toLocaleDateString('ar-SA',{weekday:'long'});
+  return d.toLocaleDateString('ar-SA',{month:'short',day:'numeric'});
+}
+function truncate(t,n){return t.length<=n?t:t.substring(0,n)+'...'}
+function isAllowed(f){return ALLOWED_TYPES.includes(f.type)}
+function isImage(f){return f.type.startsWith('image/')}
+function fmtSize(b){
+  if(!b)return'0 B';const k=1024,s=['B','KB','MB','GB'];
+  const i=Math.floor(Math.log(b)/Math.log(k));
+  return parseFloat((b/Math.pow(k,i)).toFixed(1))+' '+s[i];
+}
+function saveState(){
+  try{
+    localStorage.setItem('novamind-state',JSON.stringify({
+      conversations:state.conversations,
+      currentId:state.currentId,
+      theme:state.theme,
+      userName:state.userName
+    }));
+  }catch(e){}
+}
+function loadState(){
+  try{
+    const d=JSON.parse(localStorage.getItem('novamind-state'));
+    if(d){
+      state.conversations=d.conversations||[];
+      state.currentId=d.currentId||null;
+      state.theme=d.theme||'dark';
+      state.userName=d.userName||'';
+    }
+  }catch(e){}
+}
 function getConv(){return state.conversations.find(c=>c.id===state.currentId)}
 
-// ===== TOAST =====
-let tt;
-function toast(msg,ms=2000){const t=$('toast');t.textContent=msg;t.classList.add('show');clearTimeout(tt);tt=setTimeout(()=>t.classList.remove('show'),ms)}
-
-// ===== WELCOME =====
-$('nameInput').addEventListener('input',()=>{$('startBtn').disabled=!$('nameInput').value.trim()});
-function handleStart(){
-  const n=$('nameInput').value.trim();if(!n)return;
-  state.userName=n;save();$('welcome').classList.add('hidden');
-  setTimeout(()=>{$('welcome').style.display='none';initApp()},500);
-}
-$('startBtn').addEventListener('click',handleStart);
-$('nameInput').addEventListener('keydown',e=>{if(e.key==='Enter')handleStart()});
-
-// ===== INIT =====
-function initApp(){
-  load();applyTheme();$('app').classList.add('show');
-  if(state.conversations.length===0)newConv();
-  else{if(state.currentId){const c=getConv();if(c)state.messages=c.messages}else{const c=state.conversations[0];state.currentId=c.id;state.messages=c.messages}renderMsgs();renderSidebar()}
-  $('chatInput').focus();
-}
-
-// ===== THEME =====
-function applyTheme(){
-  if(state.theme==='light'){document.documentElement.classList.add('light');$('themeToggle').textContent='🌙'}
-  else{document.documentElement.classList.remove('light');$('themeToggle').textContent='☀️'}
-}
-$('themeToggle').addEventListener('click',()=>{state.theme=state.theme==='dark'?'light':'dark';applyTheme();save()});
-
-// ===== STATUS =====
-function setStatus(t,cls){
-  $('statusText').textContent=t;
-  const b=$('statusBadge');
-  b.className='h-status'+(cls?' '+cls:'');
-}
-
-// ===== PANELS =====
-$('toggleLeft').addEventListener('click',()=>{
-  if(isMobile()){$('leftPanel').classList.toggle('show');$('panelOverlay')?.remove();const ov=document.createElement('div');ov.className='panel-overlay'+(($('leftPanel').classList.contains('show')||$('rightPanel').classList.contains('show'))?' show':'');ov.id='panelOverlay';ov.addEventListener('click',()=>{$('leftPanel').classList.remove('show');$('rightPanel').classList.remove('show');ov.classList.remove('show')});document.body.appendChild(ov)}
-  else{$('leftPanel').classList.toggle('show');updateMainGrid()}
-});
-$('closeLeft').addEventListener('click',()=>{if(isMobile()){$('leftPanel').classList.remove('show');document.querySelector('.panel-overlay')?.classList.remove('show')}else{$('leftPanel').classList.remove('show');updateMainGrid()}});
-
-$('toggleRight').addEventListener('click',()=>{
-  if(isMobile()){
-    $('rightPanel').classList.toggle('show');
-    document.querySelectorAll('.panel-overlay').forEach(e=>e.remove());
-    const ov=document.createElement('div');ov.className='panel-overlay'+(($('leftPanel').classList.contains('show')||$('rightPanel').classList.contains('show'))?' show':'');ov.id='panelOverlay';ov.addEventListener('click',()=>{$('leftPanel').classList.remove('show');$('rightPanel').classList.remove('show');ov.classList.remove('show')});document.body.appendChild(ov)
-  }else{$('rightPanel').classList.toggle('show');updateMainGrid()}
-});
-$('closeRight').addEventListener('click',()=>{if(isMobile()){$('rightPanel').classList.remove('show');document.querySelector('.panel-overlay')?.classList.remove('show')}else{$('rightPanel').classList.remove('show');updateMainGrid()}});
-
-function updateMainGrid(){
-  const m=$('main');
-  m.classList.toggle('grid-3',$('leftPanel').classList.contains('show')||$('rightPanel').classList.contains('show'));
-}
-
-// ===== ANALYSIS LOG =====
-function addLog(msg,type='info'){
-  const t=new Date().toLocaleTimeString();
-  logEntries.push({msg,type,time:t});
-  const el=$('analysisLog');
-  if(logEntries.length===1)el.innerHTML='';
-  const d=document.createElement('div');
-  d.className='log-entry '+type;
-  d.innerHTML=`<span class="log-time">[${t}]</span> <span class="log-msg">${msg}</span>`;
-  el.appendChild(d);
-  el.scrollTop=el.scrollHeight;
-}
-
-// ===== SIDEBAR =====
-function renderSidebar(){/* kept for state management */}
-
-function newConv(){
-  const c={id:genId(),title:'محادثة جديدة',messages:[{id:'welcome',role:'assistant',content:`مرحباً يا ${state.userName}، أنا ${SITE_NAME}، مساعدك البرمجي. أرسل لي أي ملف وسأقوم بتحليله وتعديله حسب طلبك.`,timestamp:Date.now(),files:[]}],createdAt:Date.now(),updatedAt:Date.now()};
-  state.conversations.unshift(c);state.currentId=c.id;state.messages=c.messages;
-  renderMsgs();save();toast('محادثة جديدة');
-}
-
-// ===== MESSAGES =====
-function renderMsgs(){
-  const cm=$('chatMessages');cm.innerHTML='';
-  if(state.messages.length===1&&state.messages[0].id==='welcome'){
-    cm.innerHTML=`<div class="chat-welcome"><div class="chat-welcome-inner"><div class="chat-welcome-logo"><div class="chat-welcome-logo-inner">✦</div></div><h2 class="chat-welcome-title"><span>أهلاً بك يا ${state.userName}</span></h2><p class="chat-welcome-desc">أنا <strong>${SITE_NAME}</strong>، مساعد برمجة ذكي.<br>أرسل لي أي ملف وسأقوم بـ:</p><div class="chat-welcome-features"><span class="chat-welcome-feat">🔍 تحليل الكود</span><span class="chat-welcome-feat">✏️ تعديل وتحسين</span><span class="chat-welcome-feat">📦 إرجاع الملفات</span><span class="chat-welcome-feat">🐍 Python/JS/HTML</span><span class="chat-welcome-feat">📂 ملفات كبيرة</span></div></div></div>`;
-    return;
-  }
-  state.messages.forEach((m,i)=>renderMsg(m,i));
-  if(state.streamingContent)renderStreamMsg();
-  scrollDown();
-}
-
-function renderMsg(m,i){
-  const u=m.role==='user';
-  const d=document.createElement('div');d.className='msg '+(u?'user':'ai');
-  let c=u?esc(m.content):renderMd(m.content);
-  let h=`<div class="msg-avatar ${u?'user':'ai'}">${u?'👤':'✦'}</div><div class="msg-content"><div class="msg-bubble">${c}</div>`;
-  // Files in message
-  if(m.files&&m.files.length>0){
-    h+=`<div style="display:flex;flex-direction:column;gap:4px;margin-top:6px">`;
-    m.files.forEach(f=>{
-      const ext=f.name.split('.').pop()||'file';
-      h+=`<div class="file-card" data-file="${i}_${f.name}"><div class="fc-icon">${getFileIcon(ext)}</div><div class="fc-info"><div class="fc-name">${esc(f.name)}</div><div class="fc-size">${fmtSize(f.size)}</div></div><div class="fc-menu"><button class="fc-menu-btn" onclick="toggleMenu(this)">⋮</button><div class="fc-dropdown"><button onclick="viewFile(${i},'${esc(f.name)}')">📄 عرض الكود</button><button onclick="downloadFile(${i},'${esc(f.name)}')">⬇ تحميل</button></div></div></div>`;
-    });
-    h+=`</div>`;
-  }
-  h+=`<div class="msg-actions"><span class="msg-time">${fmtTime(m.timestamp)}</span>`;
-  if(!u&&m.id!=='welcome'){h+=`<button class="msg-action" onclick="copyMsg(${i})">📋</button>`;if(i===state.messages.length-1)h+=`<button class="msg-action" onclick="retryMsg()">🔄</button>`}
-  if(u)h+=`<button class="msg-action" onclick="startEdit(${i})">✎</button>`;
-  h+=`</div></div>`;
-  d.innerHTML=h;cm.appendChild(d);
-}
-
-function renderStreamMsg(){
-  const ex=cm.querySelector('.msg-streaming');
-  if(ex){ex.querySelector('.msg-bubble').innerHTML=renderMd(state.streamingContent);scrollDown();return}
-  const d=document.createElement('div');d.className='msg ai msg-streaming';
-  d.innerHTML=`<div class="msg-avatar ai">✦</div><div class="msg-content"><div class="msg-bubble">${renderMd(state.streamingContent)}</div></div>`;
-  cm.appendChild(d);scrollDown();
-}
-const cm=$('chatMessages');
-function scrollDown(){setTimeout(()=>cm.scrollTop=cm.scrollHeight,30)}
-
-// ===== FILE ICONS =====
-function getFileIcon(ext){
-  const m={py:'🐍',js:'📜',ts:'📘',jsx:'⚛',tsx:'⚛',html:'🌐',css:'🎨',json:'📋',xml:'📰',yaml:'📐',yml:'📐',md:'📝',txt:'📄',csv:'📊',sql:'🗃',sh:'💻',bat:'💻',ps1:'💻',cpp:'⚙',c:'⚙',h:'⚙',java:'☕',go:'🔵',rs:'🦀',rb:'💎',php:'🐘',swift:'🍎',kt:'🟣',dart:'🎯',lua:'🌙',r:'📈',scala:'🔴',pl:'🦙',hs:'λ'};
-  return m[ext]||'📄';
-}
-
-// ===== FILE MENU =====
-function toggleMenu(btn){
-  btn.nextElementSibling.classList.toggle('show');
-  document.addEventListener('click',function closeme(e){if(!btn.parentElement.contains(e.target)){btn.nextElementSibling.classList.remove('show');document.removeEventListener('click',closeme)}});
-}
-
-function getMsgFile(msgIdx,fname){
-  const m=state.messages[msgIdx];
-  if(!m||!m.files)return null;
-  return m.files.find(f=>f.name===fname);
-}
-
-function viewFile(msgIdx,fname){
-  const f=getMsgFile(msgIdx,fname);
-  if(!f){toast('الملف غير متوفر');return}
-  state.currentFile=f;
-  $('codeFileName').textContent=f.name;
-  $('codeEmpty').style.display='none';
-  const cv=$('codeViewer');cv.style.display='block';
-  const lines=f.content.split('\n');
-  let html='<table>';
-  lines.forEach((line,i)=>{
-    const hl=highlight(line);
-    html+=`<tr${i%2===1?' style="background:var(--bg2)"':''}><td class="line-num">${i+1}</td><td class="line-code">${hl||'&nbsp;'}</td></tr>`;
-  });
-  html+='</table>';
-  cv.innerHTML=html;
-  $('rightPanel').classList.add('show');
-  if(isMobile()){const ov=document.createElement('div');ov.className='panel-overlay show';ov.id='panelOverlay';ov.addEventListener('click',()=>{$('rightPanel').classList.remove('show');$('leftPanel').classList.remove('show');ov.remove()});document.body.appendChild(ov)}
-  updateMainGrid();
-}
-
-function highlight(line){
-  if(!line)return'';
-  let h=esc(line);
-  // Keywords
-  const kws=['\\b(function|const|let|var|if|else|for|while|do|switch|case|break|continue|return|import|export|from|class|extends|new|this|async|await|try|catch|finally|throw|typeof|instanceof|of|in|def|if|elif|else|for|while|import|from|class|return|yield|try|except|finally|with|as|pass|break|continue|lambda|print|range|len|int|str|float|list|dict|set|tuple|True|False|None|and|or|not|is|NULL|void|int|float|double|char|bool|string|public|private|protected|static|final|abstract|interface|implements|extends|package|import|namespace|using|include|require|echo|var_dump|print_r|defined|function|return|if|else|elseif|endforeach|endif|endforeach|endwhile|endfor)\\b'];
-  kws.forEach(k=>{h=h.replace(new RegExp(k,'g'),'<span class="kw">$1</span>')});
-  // Strings
-  h=h.replace(/(["'`])(?:(?!\1|\\).|\\.)*\1/g,'<span class="str">$&</span>');
-  // Comments
-  h=h.replace(/(\/\/.*$|#.*$)/gm,'<span class="cm">$1</span>');
-  // Numbers
-  h=h.replace(/\b(\d+\.?\d*)\b/g,'<span class="num">$1</span>');
-  // Functions
-  h=h.replace(/\b([a-zA-Z_$][\w$]*)\s*\(/g,'<span class="fn">$1</span>(');
-  // Types
-  h=h.replace(/\b(int|float|str|bool|list|dict|tuple|set|void|string|number|boolean|undefined|null|any|never)\b/g,'<span class="tp">$1</span>');
-  return h;
-}
-
-function downloadFile(msgIdx,fname){
-  const f=getMsgFile(msgIdx,fname);
-  if(!f){toast('الملف غير متوفر');return}
-  const blob=new Blob([f.content],{type:'text/plain'});
-  const url=URL.createObjectURL(blob);
-  const a=document.createElement('a');a.href=url;a.download=fname;a.click();
-  URL.revokeObjectURL(url);
-  toast('تم التحميل');
-}
-
-$('codeDownload').addEventListener('click',()=>{
-  if(!state.currentFile){toast('لا يوجد ملف مفتوح');return}
-  downloadFileFromState(state.currentFile);
-});
-function downloadFileFromState(f){
-  const blob=new Blob([f.content],{type:'text/plain'});
-  const url=URL.createObjectURL(blob);
-  const a=document.createElement('a');a.href=url;a.download=f.name;a.click();
-  URL.revokeObjectURL(url);
-  toast('تم التحميل');
-}
-
-// ===== MARKDOWN =====
-function renderMd(t){
-  if(!t)return'';let h=esc(t);
-  h=h.replace(/^### (.+)$/gm,'<h3>$1</h3>');
-  h=h.replace(/^## (.+)$/gm,'<h2>$1</h2>');
-  h=h.replace(/^# (.+)$/gm,'<h1>$1</h1>');
-  h=h.replace(/\*\*\*(.+?)\*\*\*/g,'<strong><em>$1</em></strong>');
-  h=h.replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>');
-  h=h.replace(/\*(.+?)\*/g,'<em>$1</em>');
-  h=h.replace(/`([^`]+)`/g,'<code>$1</code>');
-  h=h.replace(/```(\w*)\n([\s\S]*?)```/g,(m,lang,code)=>`<pre><code>${esc(code)}</code></pre>`);
-  h=h.replace(/\[([^\]]+)\]\(([^)]+)\)/g,'<a href="$2" target="_blank">$1</a>');
-  h=h.replace(/^> (.+)$/gm,'<blockquote>$1</blockquote>');
-  h=h.replace(/^[-*] (.+)$/gm,'<li>$1</li>');
-  h=h.replace(/((?:<li>.*<\/li>\n?)+)/g,m=>'<ul>'+m.replace(/\n/g,'')+'</ul>');
-  h=h.replace(/---+/g,'<hr>');
-  h=h.replace(/\n\n/g,'</p><p>');h='<p>'+h+'</p>';h=h.replace(/<p><\/p>/g,'');
-  return h;
-}
-
-// ===== CHAT - INPUT =====
-$('chatInput').addEventListener('input',()=>{
-  $('sendBtn').disabled=!$('chatInput').value.trim()||state.isLoading;
-  $('chatInput').style.height='auto';$('chatInput').style.height=Math.min($('chatInput').scrollHeight,100)+'px'
-});
-$('chatInput').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();send()}});
-$('sendBtn').addEventListener('click',()=>send());
-
-async function send(){
-  if(state.editIndex>=0){
-    const txt=$('chatInput').value.trim();if(!txt)return;
-    const uMsgs=state.messages.filter(m=>m.role==='user');
-    const orig=uMsgs[state.editIndex];
-    $('chatInput').value='';$('sendBtn').disabled=true;state.editIndex=-1;$('editBar').style.display='none';
-    $('chatInput').style.height='auto';
-    await doSend(txt,orig?.files||[],orig?.images||[]);
-    return;
-  }
-  const txt=$('chatInput').value.trim();if(!txt||state.isLoading)return;
-  $('chatInput').value='';$('sendBtn').disabled=true;$('chatInput').style.height='auto';
-  await doSend(txt,[],[]);
-}
-
-async function doSend(content,files,images){
-  const userMsg={id:genId(),role:'user',content,timestamp:Date.now(),files:files.length?files:undefined,images:images.length?images:undefined};
-  state.messages.push(userMsg);updateConv();renderMsgs();save();
-  state.isLoading=true;$('sendBtn').disabled=true;setStatus('جاري التحليل...','busy');showTyping(true);
-
-  // Add analysis logs
-  addLog('📥 استلام الطلب...','info');
-  addLog('📄 تحليل الملفات المرفوعة...','info');
-  if(files.length){
-    files.forEach(f=>addLog(`📎 ملف: ${f.name} (${fmtSize(f.size)})`,'info'));
-    addLog(`🔍 عدد الأسطر: ${files[0].content.split('\n').length}`,'info');
-  }
-
-  try{
-    const sysPrompt=`أنت ${SITE_NAME}، مساعد برمجة متطور. اسمك ${SITE_NAME}.
-
-مهمتك: قراءة وتحليل وتعديل وتحسين الكود المصدري. أنت خبير في جميع لغات البرمجة.
-
-شخصيتك:
-- خبير برمجة محترف
-- تحلل الكود بدقة وتفهم السياق كاملاً
-- تعدل الكود حسب طلب المستخدم
-- ترجع الملفات المعدلة كاملة
-- تستخدم Markdown في الردود
-- تكتب كود نظيف ومنظم
-
-عندما يطلب منك تعديل ملف:
-1. اقرأ الكود بالكامل
-2. حلّل هيكله ووظائفه
-3. نفذ التعديلات المطلوبة
-4. أعد الملف كاملاً مع التغييرات
-5. اشرح التغييرات التي قمت بها
-
-للتعامل مع الملفات الكبيرة:
-- حلّل الكود بشكل تدريجي
-- ركز على الأجزاء المطلوب تعديلها
-- حافظ على باقي الكود كما هو
-
-المستخدم: ${state.userName}
-المطور: Mahmoud Ahmed Saeed`;
-
-    const apiMsgs=[{role:'system',content:sysPrompt}];
-    for(const m of state.messages){
-      if(m.role==='user'){
-        const parts=[];
-        if(m.content)parts.push({type:'text',text:m.content});
-        if(m.files)for(const f of m.files)parts.push({type:'text',text:`--- ملف: ${f.name} ---\n\`\`\`\n${f.content}\n\`\`\``});
-        if(m.images)for(const img of m.images)parts.push({type:'image_url',image_url:{url:`data:image/jpeg;base64,${img}`,detail:'high'}});
-        apiMsgs.push({role:'user',content:parts.length===1?parts[0].text:parts});
-      }else apiMsgs.push({role:'assistant',content:m.content});
-    }
-
-    // Merge extra files into last user message
-    const lu=apiMsgs.slice().reverse().find(m=>m.role==='user');
-    if(lu&&(files.length||images.length)){
-      if(typeof lu.content==='string')lu.content=[{type:'text',text:lu.content}];
-      for(const f of files)lu.content.push({type:'text',text:`--- ملف: ${f.name} ---\n\`\`\`\n${f.content}\n\`\`\``});
-      for(const img of images)lu.content.push({type:'image_url',image_url:{url:`data:image/jpeg;base64,${img}`,detail:'high'}});
-    }
-
-    addLog('🤖 إرسال إلى الذكاء الاصطناعي...','info');
-    state.streamingContent='';
-    const startTime=Date.now();
-
-    const res=await fetch('https://api.groq.com/openai/v1/chat/completions',{
-      method:'POST',
-      headers:{'Content-Type':'application/json','Authorization':`Bearer ${GROQ_API_KEY}`},
-      body:JSON.stringify({model:GROQ_MODEL,messages:apiMsgs,temperature:0.7,max_tokens:8192,top_p:1,stream:true})
-    });
-    if(!res.ok){const err=await res.text();throw new Error(`خطأ ${res.status}`)}
-
-    const reader=res.body.getReader();const decoder=new TextDecoder();let full='';
-    while(true){
-      const{done,value}=await reader.read();if(done)break;
-      const chunk=decoder.decode(value);const lines=chunk.split('\n');
-      for(const line of lines){
-        if(line.startsWith('data: ')){
-          const data=line.slice(6);
-          if(data==='[DONE]'){addLog('✅ اكتمل الاستلام','success');continue}
-          try{const p=JSON.parse(data);const d=p.choices?.[0]?.delta?.content||'';full+=d;state.streamingContent=full;renderStreamMsg()}catch{}
-        }
-      }
-    }
-
-    const elapsed=((Date.now()-startTime)/1000).toFixed(1);
-    addLog(`⏱ استغرق ${elapsed} ثانية`,'success');
-
-    // Try to extract files from response
-    const aiMsg={id:genId(),role:'assistant',content:full,timestamp:Date.now()};
-    state.messages.push(aiMsg);updateConv();state.streamingContent='';renderMsgs();save();
-    addLog('📦 تم تحديث المحادثة','success');
-    setStatus('جاهز','');
-
-  }catch(err){
-    addLog(`❌ خطأ: ${err.message}`,'error');
-    const errMsg={id:genId(),role:'assistant',content:`عذراً، حدث خطأ: ${err.message}`,timestamp:Date.now()};
-    state.messages.push(errMsg);updateConv();renderMsgs();save();
-    setStatus('خطأ','');
-  }finally{
-    state.isLoading=false;showTyping(false);$('sendBtn').disabled=!$('chatInput').value.trim();$('chatInput').focus()
-  }
-}
-
-function updateConv(){
-  const c=getConv();if(c){c.messages=state.messages;c.updatedAt=Date.now();
-    if(c.title==='محادثة جديدة'){const u=state.messages.find(m=>m.role==='user');if(u)c.title=trunc(u.content,50)}}
-  save()
-}
-
-function showTyping(s){
-  const e=cm.querySelector('.typing');
-  if(s&&!e){const d=document.createElement('div');d.className='typing';d.innerHTML=`<div class="msg-avatar ai">✦</div><div class="typing-dots"><span class="typing-dot"></span><span class="typing-dot"></span><span class="typing-dot"></span></div>`;cm.appendChild(d);scrollDown()}
-  else if(!s&&e)e.remove()
-}
-
-// ===== MSG ACTIONS =====
-function copyMsg(i){const m=state.messages[i];if(!m)return;navigator.clipboard.writeText(m.content).catch(()=>{});toast('تم النسخ')}
-function retryMsg(){
-  const u=state.messages.filter(m=>m.role==='user');if(!u.length)return;const last=u[u.length-1];
-  if(state.messages[state.messages.length-1]?.role==='assistant')state.messages.pop();
-  renderMsgs();save();doSend(last.content,last.files||[],last.images||[]);
-}
-function startEdit(i){
-  const u=state.messages.filter(m=>m.role==='user');const m=u[i];if(!m)return;
-  state.editIndex=i;$('chatInput').value=m.content;$('editBar').style.display='flex';$('chatInput').focus();
-  $('sendBtn').disabled=false;$('chatInput').style.height='auto';$('chatInput').style.height=Math.min($('chatInput').scrollHeight,100)+'px'
-}
-$('editCancel').addEventListener('click',()=>{state.editIndex=-1;$('editBar').style.display='none';$('chatInput').value='';$('chatInput').style.height='auto';$('sendBtn').disabled=true});
-
-// ===== FILE UPLOAD =====
-let uploadFiles=[];
-function openUpload(){$('uploadOverlay').classList.add('show');$('uploadModal').classList.add('show');uploadFiles=[];renderSelFiles();$('uploadConfirm').disabled=true;$('uploadConfirm').textContent='رفع وتحليل (0)';$('uploadError').classList.remove('show')}
-function closeUpload(){$('uploadOverlay').classList.remove('show');$('uploadModal').classList.remove('show')}
-
-$('fileBtn').addEventListener('click',openUpload);
-$('uploadClose').addEventListener('click',closeUpload);
-$('uploadCancel').addEventListener('click',closeUpload);
-$('uploadOverlay').addEventListener('click',closeUpload);
-$('filesBtn').addEventListener('click',()=>$('fileInput').click());
-$('fileInput').addEventListener('change',()=>{addUFiles($('fileInput').files);$('fileInput').value=''});
-
-$('dropzone').addEventListener('dragover',e=>{e.preventDefault();$('dropzone').classList.add('dragover')});
-$('dropzone').addEventListener('dragleave',()=>$('dropzone').classList.remove('dragover'));
-$('dropzone').addEventListener('drop',e=>{e.preventDefault();$('dropzone').classList.remove('dragover');addUFiles(e.dataTransfer.files)});
-
-function addUFiles(files){
-  const errs=[];
-  Array.from(files).forEach(f=>{
-    if(f.size>MAX_FILE_SIZE)errs.push(`${f.name}: الحجم يتجاوز 200MB`);
-    else uploadFiles.push(f);
-  });
-  if(errs.length){$('uploadError').textContent=errs.join('\n');$('uploadError').classList.add('show')}
-  else $('uploadError').classList.remove('show');
-  renderSelFiles();
-}
-
-function renderSelFiles(){
-  const sf=$('selFiles');sf.innerHTML='';
-  uploadFiles.forEach((f,i)=>{
-    const ext=f.name.split('.').pop()||'file';
-    const d=document.createElement('div');d.className='sf';
-    d.innerHTML=`<span class="sf-icon">${getFileIcon(ext)}</span><div class="sf-info"><div class="sf-name">${esc(f.name)}</div><div class="sf-size">${fmtSize(f.size)}</div></div><button class="sf-rm" data-idx="${i}">✕</button>`;
-    d.querySelector('.sf-rm').addEventListener('click',()=>{uploadFiles.splice(i,1);renderSelFiles()});
-    sf.appendChild(d);
-  });
-  $('uploadConfirm').disabled=uploadFiles.length===0;
-  $('uploadConfirm').textContent=`رفع وتحليل (${uploadFiles.length})`;
-}
-
-$('uploadConfirm').addEventListener('click',async()=>{
-  if(!uploadFiles.length)return;closeUpload();
-  const fInfos=[];const iBases=[];
-  for(const f of uploadFiles){
-    if(f.type.startsWith('image/'))iBases.push(await fileB64(f));
-    else fInfos.push({name:f.name,type:f.type,size:f.size,content:await fileContent(f)});
-  }
-  uploadFiles=[];
-  if(iBases.length&&fInfos.length)await doSend(`[تم رفع ${iBases.length} صورة و ${fInfos.length} ملف]`,fInfos,iBases);
-  else if(iBases.length)await doSend(`[تم رفع ${iBases.length} صورة للتحليل]`,[],iBases);
-  else if(fInfos.length){
-    const totalLines=fInfos.reduce((s,f)=>s+f.content.split('\n').length,0);
-    await doSend(`[تم رفع ${fInfos.length} ملف - ${totalLines.toLocaleString()} سطر] حلل هذه الملفات واعرض ملخصاً عنها`,fInfos,[]);
-  }
-});
-
-function fileB64(f){return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result.split(',')[1]);r.onerror=rej;r.readAsDataURL(f)})}
-function fileContent(f){return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>{const result=r.result;if(typeof result==='string'&&result.startsWith('data:'))res(result.split(',')[1]||result);else res(result)};r.onerror=rej;r.readAsText(f)})}
-
-// Hidden file input (for image button)
-$('imageBtn').addEventListener('click',()=>$('hiddenFileInput').click());
-$('hiddenFileInput').addEventListener('change',async()=>{
-  if(!$('hiddenFileInput').files.length)return;
-  const bases=[];const fInfos=[];
-  for(const f of $('hiddenFileInput').files){
-    if(f.type.startsWith('image/'))bases.push(await fileB64(f));
-    else fInfos.push({name:f.name,type:f.type,size:f.size,content:await fileContent(f)});
-  }
-  $('hiddenFileInput').value='';
-  if(bases.length)await doSend(`[تم رفع ${bases.length} صورة للتحليل]`,fInfos,bases);
-});
-
-// ===== KEYBOARD SHORTCUTS =====
-document.addEventListener('keydown',e=>{
-  if(e.key==='Escape'){
-    if($('uploadModal').classList.contains('show'))closeUpload();
-    else if(state.editIndex>=0)$('editCancel').click();
-    else{if(isMobile()){$('leftPanel').classList.remove('show');$('rightPanel').classList.remove('show');document.querySelector('.panel-overlay')?.classList.remove('show')}}
-  }
-  if((e.ctrlKey||e.metaKey)&&e.key==='n'){e.preventDefault();newConv()}
-  if((e.ctrlKey||e.metaKey)&&e.key==='/'){e.preventDefault();$('chatInput').focus()}
-  if((e.ctrlKey||e.metaKey)&&e.key==='e'){e.preventDefault();$('toggleRight').click()}
-  if((e.ctrlKey||e.metaKey)&&e.key==='l'){e.preventDefault();$('toggleLeft').click()}
-});
-
-// ===== INIT =====
-initParticles();
-$('nameInput').focus();
-$('startBtn').disabled=true;
-
+// ===== PARTICLES =====
 function initParticles(){
   const c=$('particles');
-  for(let i=0;i<25;i++){
-    const d=document.createElement('div');d.className='w-particle';
-    const s=Math.random()*3+1;
+  for(let i=0;i<30;i++){
+    const d=document.createElement('div');
+    d.className='w-particle';
+    const s=Math.random()*4+1;
     d.style.cssText=`left:${Math.random()*100}%;top:${Math.random()*100}%;width:${s}px;height:${s}px;animation-delay:${Math.random()*3}s`;
     c.appendChild(d);
   }
 }
+
+// ===== WELCOME =====
+nameInput.addEventListener('input',()=>{
+  startBtn.disabled=!nameInput.value.trim();
+});
+document.getElementById('welcomeForm').addEventListener('submit',e=>{
+  e.preventDefault();
+  const n=nameInput.value.trim();
+  if(!n)return;
+  state.userName=n;
+  saveState();
+  welcome.classList.add('hidden');
+  setTimeout(()=>{
+    welcome.style.display='none';
+    initApp();
+  },500);
+});
+
+// ===== INIT APP =====
+function initApp(){
+  loadState();
+  applyTheme();
+  app.classList.add('show');
+  sidebarUser.textContent=state.userName;
+  if(state.conversations.length===0){
+    newConversation();
+  }else{
+    renderSidebar();
+    if(state.currentId){
+      const c=getConv();
+      if(c)state.messages=c.messages;
+      else{newConversation();return}
+    }else{
+      const c=state.conversations[0];
+      state.currentId=c.id;
+      state.messages=c.messages;
+    }
+    renderMessages();
+    renderSidebar();
+  }
+  chatInput.focus();
+}
+
+// ===== THEME =====
+function applyTheme(){
+  if(state.theme==='light'){
+    document.documentElement.classList.add('light');
+    themeToggle.textContent='🌙';
+  }else{
+    document.documentElement.classList.remove('light');
+    themeToggle.textContent='☀️';
+  }
+}
+themeToggle.addEventListener('click',()=>{
+  state.theme=state.theme==='dark'?'light':'dark';
+  applyTheme();saveState();
+});
+
+// ===== SIDEBAR =====
+function toggleSidebar(open){
+  state.sidebarOpen=open!==undefined?open:!state.sidebarOpen;
+  sidebar.classList.toggle('closed',!state.sidebarOpen);
+}
+sidebarToggle.addEventListener('click',()=>toggleSidebar());
+sidebarClose.addEventListener('click',()=>toggleSidebar(false));
+
+function renderSidebar(){
+  const q=searchChats.value.toLowerCase();
+  const filtered=state.conversations.filter(c=>c.title.toLowerCase().includes(q));
+  chatList.innerHTML='';
+  if(filtered.length===0){
+    chatList.innerHTML='<div class="sb-empty">'+(!q?'لا توجد محادثات بعد':'لا توجد محادثات مطابقة')+'</div>';
+    return;
+  }
+  filtered.forEach(conv=>{
+    const div=document.createElement('div');
+    div.className='sb-item'+(conv.id===state.currentId?' active':'');
+    div.innerHTML=`
+      <span class="sb-item-icon">💬</span>
+      <div class="sb-item-info">
+        <div class="sb-item-title">${truncate(conv.title,30)}</div>
+        <div class="sb-item-time">${fmtTime(conv.updatedAt)}</div>
+      </div>
+      <div class="sb-item-actions">
+        <button class="sb-item-action" data-rename="${conv.id}" title="إعادة تسمية">✎</button>
+        <button class="sb-item-action danger" data-delete="${conv.id}" title="حذف">🗑</button>
+      </div>
+    `;
+    div.addEventListener('click',e=>{
+      if(e.target.closest('.sb-item-actions'))return;
+      selectConversation(conv.id);
+      if(window.innerWidth<1024)toggleSidebar(false);
+    });
+    chatList.appendChild(div);
+  });
+  // Attach action listeners
+  chatList.querySelectorAll('[data-rename]').forEach(b=>{
+    b.addEventListener('click',e=>{e.stopPropagation();startRename(b.dataset.rename)});
+  });
+  chatList.querySelectorAll('[data-delete]').forEach(b=>{
+    b.addEventListener('click',e=>{e.stopPropagation();deleteConversation(b.dataset.delete)});
+  });
+}
+
+function startRename(id){
+  const conv=state.conversations.find(c=>c.id===id);
+  if(!conv)return;
+  const item=chatList.querySelector(`.sb-item.active`);
+  if(!item)return;
+  const info=item.querySelector('.sb-item-info');
+  const orig=info.innerHTML;
+  info.innerHTML=`
+    <div class="rename-bar">
+      <input type="text" class="rename-input" value="${conv.title==='محادثة جديدة'?'':conv.title}" placeholder="اسم المحادثة" dir="rtl">
+      <button class="rename-btn ok">✓</button>
+      <button class="rename-btn cancel">✕</button>
+    </div>
+  `;
+  const inp=info.querySelector('.rename-input');inp.focus();inp.select();
+  info.querySelector('.rename-btn.ok').onclick=()=>{
+    const v=inp.value.trim();
+    if(v){conv.title=v;conv.updatedAt=Date.now();saveState();}
+    renderSidebar();
+  };
+  info.querySelector('.rename-btn.cancel').onclick=()=>renderSidebar();
+  inp.onkeydown=e=>{
+    if(e.key==='Enter'){info.querySelector('.rename-btn.ok').click();}
+    if(e.key==='Escape')renderSidebar();
+  };
+}
+
+function deleteConversation(id){
+  if(!confirm('هل أنت متأكد من حذف هذه المحادثة؟'))return;
+  state.conversations=state.conversations.filter(c=>c.id!==id);
+  if(state.currentId===id){
+    if(state.conversations.length>0){
+      selectConversation(state.conversations[0].id);
+    }else{
+      newConversation();
+    }
+  }
+  saveState();renderSidebar();
+}
+
+function selectConversation(id){
+  state.currentId=id;
+  const c=getConv();
+  if(c)state.messages=c.messages;
+  renderMessages();renderSidebar();saveState();
+  chatInput.focus();
+}
+
+function newConversation(){
+  const conv={
+    id:genId(),title:'محادثة جديدة',
+    messages:[{id:'welcome',role:'assistant',content:`مرحباً يا ${state.userName}، كيف يمكنني مساعدتك اليوم؟`,timestamp:Date.now()}],
+    createdAt:Date.now(),updatedAt:Date.now()
+  };
+  state.conversations.unshift(conv);
+  state.currentId=conv.id;
+  state.messages=conv.messages;
+  renderMessages();renderSidebar();saveState();
+  if(window.innerWidth<1024)toggleSidebar(false);
+  chatInput.focus();
+}
+newChatBtn.addEventListener('click',()=>newConversation());
+searchChats.addEventListener('input',renderSidebar);
+logoutBtn.addEventListener('click',()=>{
+  if(!confirm('هل تريد تسجيل الخروج؟'))return;
+  localStorage.removeItem('novamind-state');
+  state.conversations=[];state.currentId=null;state.messages=[];
+  app.classList.remove('show');welcome.style.display='flex';welcome.classList.remove('hidden');
+  nameInput.value='';startBtn.disabled=true;nameInput.focus();
+});
+
+// ===== MESSAGES =====
+function renderMessages(){
+  chatMessages.innerHTML='';
+  if(state.messages.length===1&&state.messages[0].id==='welcome'){
+    chatMessages.innerHTML=`
+      <div class="chat-welcome">
+        <div class="chat-welcome-inner">
+          <div class="chat-welcome-logo"><div class="chat-welcome-logo-inner">✦</div></div>
+          <h2 class="chat-welcome-title"><span>أهلاً بك يا ${state.userName}</span></h2>
+          <p class="chat-welcome-desc">
+            أنا <strong>${SITE_NAME}</strong>، مساعدك الذكي. يمكنني مساعدتك في
+            البرمجة، الدراسة، تحليل الصور والملفات، الكتابة، والإجابة عن مختلف الأسئلة.
+          </p>
+        </div>
+      </div>
+    `;
+    return;
+  }
+  state.messages.forEach((msg,i)=>{renderMsg(msg,i);});
+  if(state.streamingContent){
+    renderStreamingMsg();
+  }
+  scrollToBottom();
+}
+
+function renderMsg(msg,i){
+  const isUser=msg.role==='user';
+  const div=document.createElement('div');
+  div.className='msg '+(isUser?'user':'ai');
+  div.dataset.index=i;
+
+  let content=escapeHtml(msg.content);
+  if(!isUser)content=renderMarkdown(msg.content);
+
+  let html=`
+    <div class="msg-avatar ${isUser?'user':'ai'}">${isUser?'👤':'✦'}</div>
+    <div class="msg-content">
+      <div class="msg-bubble">${content}</div>
+  `;
+
+  if(msg.images&&msg.images.length>0){
+    html+=`<div class="msg-imgs">`;
+    msg.images.forEach(img=>{html+=`<img src="data:image/jpeg;base64,${img}" alt="صورة">`;});
+    html+=`</div>`;
+  }
+  if(msg.files&&msg.files.length>0){
+    html+=`<div class="msg-files">`;
+    msg.files.forEach(f=>{
+      html+=`<div class="msg-file"><span>📄</span><span class="name">${escapeHtml(f.name)}</span><span class="size">${fmtSize(f.size)}</span></div>`;
+    });
+    html+=`</div>`;
+  }
+
+  html+=`<div class="msg-actions">`;
+  html+=`<span class="msg-time">${fmtTime(msg.timestamp)}</span>`;
+  if(!isUser&&msg.id!=='welcome'){
+    html+=`<button class="msg-action" data-copy="${i}">📋</button>`;
+    if(i===state.messages.length-1)html+=`<button class="msg-action" data-retry="${i}">🔄</button>`;
+  }
+  if(isUser){
+    html+=`<button class="msg-action" data-edit="${i}">✎</button>`;
+  }
+  html+=`</div></div>`;
+
+  div.innerHTML=html;
+  chatMessages.appendChild(div);
+
+  // Attach events
+  if(!isUser&&msg.id!=='welcome'){
+    div.querySelector('[data-copy]')?.addEventListener('click',()=>copyMsg(i));
+    div.querySelector('[data-retry]')?.addEventListener('click',()=>retryMsg());
+  }
+  if(isUser){
+    div.querySelector('[data-edit]')?.addEventListener('click',()=>startEdit(i));
+  }
+}
+
+function renderStreamingMsg(){
+  const existing=chatMessages.querySelector('.msg-streaming');
+  if(existing){
+    const bubble=existing.querySelector('.msg-bubble');
+    if(bubble)bubble.innerHTML=renderMarkdown(state.streamingContent);
+    scrollToBottom();
+    return;
+  }
+  const div=document.createElement('div');
+  div.className='msg ai msg-streaming';
+  div.innerHTML=`
+    <div class="msg-avatar ai">✦</div>
+    <div class="msg-content">
+      <div class="msg-bubble">${renderMarkdown(state.streamingContent)}</div>
+    </div>
+  `;
+  chatMessages.appendChild(div);
+  scrollToBottom();
+}
+
+function scrollToBottom(){
+  setTimeout(()=>{chatMessages.scrollTop=chatMessages.scrollHeight},50);
+}
+
+// ===== MARKDOWN =====
+function renderMarkdown(text){
+  if(!text)return'';
+  // Escape html first, then apply markdown
+  let h=escapeHtml(text);
+  // Headers
+  h=h.replace(/^### (.+)$/gm,'<h3>$1</h3>');
+  h=h.replace(/^## (.+)$/gm,'<h2>$1</h2>');
+  h=h.replace(/^# (.+)$/gm,'<h1>$1</h1>');
+  // Bold & italic
+  h=h.replace(/\*\*\*(.+?)\*\*\*/g,'<strong><em>$1</em></strong>');
+  h=h.replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>');
+  h=h.replace(/\*(.+?)\*/g,'<em>$1</em>');
+  // Inline code
+  h=h.replace(/`([^`]+)`/g,'<code>$1</code>');
+  // Code blocks
+  h=h.replace(/```(\w*)\n([\s\S]*?)```/g,(m,lang,code)=>{
+    return `<pre><code>${escapeHtml(code)}</code></pre>`;
+  });
+  // Links
+  h=h.replace(/\[([^\]]+)\]\(([^)]+)\)/g,'<a href="$2" target="_blank">$1</a>');
+  // Images
+  h=h.replace(/!\[([^\]]*)\]\(([^)]+)\)/g,'<img src="$2" alt="$1">');
+  // Tables
+  h=h.replace(/^\|(.+)\|$/gm,(m,row)=>{
+    const cells=row.split('|').map(c=>c.trim()).filter(c=>c);
+    if(cells.every(c=>/^[-:\s]+$/.test(c)))return'';
+    return'<tr><td>'+cells.join('</td><td>')+'</td></tr>';
+  });
+  h=h.replace(/<tr>.*?<\/tr>/g,(m)=>{
+    const prev=h.indexOf(m);
+    const before=h.substring(0,prev).trimEnd();
+    if(before.endsWith('<table>')||before.endsWith('</thead>'))return m;
+    return'<table>'+m+'</table>';
+  });
+  // Blockquotes
+  h=h.replace(/^> (.+)$/gm,'<blockquote>$1</blockquote>');
+  // Unordered list
+  h=h.replace(/^[-*] (.+)$/gm,'<li>$1</li>');
+  h=h.replace(/(<li>.*<\/li>)/s,(m)=>{
+    return'<ul>'+m.split('</li><li>').map((l,i)=>
+      i===0?l+'</li>':i===m.split('</li>').length-2?'<li>'+l:'<li>'+l+'</li>'
+    ).join('')+'</ul>';
+  });
+  // Horizontal rule
+  h=h.replace(/^---+$/gm,'<hr>');
+  // Newlines
+  h=h.replace(/\n\n/g,'</p><p>');
+  h='<p>'+h+'</p>';
+  // Clean empty paragraphs
+  h=h.replace(/<p><\/p>/g,'');
+  // Fix nested p
+  return h;
+}
+
+function escapeHtml(t){
+  const d=document.createElement('div');
+  d.textContent=t;
+  return d.innerHTML;
+}
+
+// ===== CHAT INPUT =====
+chatInput.addEventListener('input',()=>{
+  sendBtn.disabled=!chatInput.value.trim()||state.isLoading;
+  chatInput.style.height='auto';
+  chatInput.style.height=Math.min(chatInput.scrollHeight,150)+'px';
+});
+chatInput.addEventListener('keydown',e=>{
+  if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendMessage();}
+});
+sendBtn.addEventListener('click',()=>sendMessage());
+
+async function sendMessage(){
+  if(state.editIndex>=0){
+    const txt=chatInput.value.trim();
+    if(!txt)return;
+    // Get the user message being edited
+    const userMsgs=state.messages.filter(m=>m.role==='user');
+    const orig=userMsgs[state.editIndex];
+    chatInput.value='';sendBtn.disabled=true;state.editIndex=-1;editBar.style.display='none';
+    chatInput.style.height='auto';
+    await doSend(txt,orig?.files||[],orig?.images||[]);
+    return;
+  }
+  const txt=chatInput.value.trim();
+  if(!txt||state.isLoading)return;
+  chatInput.value='';sendBtn.disabled=true;state.editIndex=-1;editBar.style.display='none';
+  chatInput.style.height='auto';
+
+  const files=[...state.pendingFiles];
+  const images=[...state.pendingImages];
+  state.pendingFiles=[];state.pendingImages=[];
+
+  await doSend(txt,files,images);
+}
+
+async function doSend(content,files,images){
+  // Add user message
+  const userMsg={id:genId(),role:'user',content,timestamp:Date.now(),files:files.length?files:undefined,images:images.length?images:undefined};
+  state.messages.push(userMsg);
+  updateConvMessages();
+  renderMessages();saveState();
+
+  state.isLoading=true;sendBtn.disabled=true;
+  updateTypingIndicator(true);
+
+  try{
+    const systemPrompt=`أنت ${SITE_NAME}، مساعد ذكاء اصطناعي متطور. اسمك ${SITE_NAME} وليس ChatGPT أو Claude أو Gemini أو أي مساعد آخر. أنت المساعد الرسمي الحصري لموقع ${SITE_NAME}.
+
+معلومات عنك:
+- اسمك: ${SITE_NAME}
+- مطورك: Mahmoud Ahmed Saeed
+- مهمتك: مساعدة المستخدم في البرمجة، الدراسة، تحليل الصور والملفات، الكتابة، والإجابة عن مختلف الأسئلة
+
+شخصيتك:
+- ودود ومحترم
+- تستخدم اللغة العربية الفصحى بشكل أساسي
+- تخاطب المستخدم باسمه (${state.userName})
+- تقدم إجابات دقيقة ومفيدة باستخدام Markdown
+
+تذكر دائماً:
+- أنت ${SITE_NAME} وليس ChatGPT أو Claude أو Gemini
+- لا تقل أبداً أنك تابع لـ OpenAI أو Google
+- أنت مساعد مستقل تم تطويره بواسطة Mahmoud Ahmed Saeed`;
+
+    const apiMessages=[
+      {role:'system',content:systemPrompt},
+      ...state.messages.map(m=>{
+        if(m.role==='user'){
+          const parts=[];
+          if(m.content)parts.push({type:'text',text:m.content});
+          if(m.files)for(const f of m.files)parts.push({type:'text',text:`[الملف: ${f.name}]\n\n${f.content}`});
+          if(m.images)for(const img of m.images)parts.push({type:'image_url',image_url:{url:`data:image/jpeg;base64,${img}`,detail:'high'}});
+          return{role:'user',content:parts.length===1?parts[0].text:parts};
+        }
+        return{role:'assistant',content:m.content};
+      })
+    ];
+
+    // Merge extra files/images into last user message
+    const lastUser=apiMessages.slice().reverse().find(m=>m.role==='user');
+    if(lastUser&&(files.length||images.length)){
+      if(typeof lastUser.content==='string')lastUser.content=[{type:'text',text:lastUser.content}];
+      for(const f of files)lastUser.content.push({type:'text',text:`[الملف: ${f.name}]\n\n${f.content}`});
+      for(const img of images)lastUser.content.push({type:'image_url',image_url:{url:`data:image/jpeg;base64,${img}`,detail:'high'}});
+    }
+
+    state.streamingContent='';
+    const response=await fetch('https://api.groq.com/openai/v1/chat/completions',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':`Bearer ${GROQ_API_KEY}`},
+      body:JSON.stringify({
+        model:GROQ_MODEL,
+        messages:apiMessages,
+        temperature:0.7,max_tokens:4096,top_p:1,stream:true
+      })
+    });
+
+    if(!response.ok){
+      const err=await response.text();
+      throw new Error(`خطأ ${response.status}: ${err}`);
+    }
+
+    const reader=response.body.getReader();
+    const decoder=new TextDecoder();
+    let full='';
+
+    while(true){
+      const {done,value}=await reader.read();
+      if(done)break;
+      const chunk=decoder.decode(value);
+      const lines=chunk.split('\n');
+      for(const line of lines){
+        if(line.startsWith('data: ')){
+          const data=line.slice(6);
+          if(data==='[DONE]')continue;
+          try{
+            const parsed=JSON.parse(data);
+            const delta=parsed.choices?.[0]?.delta?.content||'';
+            full+=delta;
+            state.streamingContent=full;
+            renderStreamingMsg();
+          }catch{}
+        }
+      }
+    }
+
+    const aiMsg={id:genId(),role:'assistant',content:full,timestamp:Date.now()};
+    state.messages.push(aiMsg);
+    updateConvMessages();
+    state.streamingContent='';
+    renderMessages();saveState();
+  }catch(err){
+    const errMsg={id:genId(),role:'assistant',content:`عذراً، حدث خطأ: ${err.message}`,timestamp:Date.now()};
+    state.messages.push(errMsg);
+    updateConvMessages();renderMessages();saveState();
+  }finally{
+    state.isLoading=false;updateTypingIndicator(false);
+    sendBtn.disabled=!chatInput.value.trim();
+    chatInput.focus();
+  }
+}
+
+function updateConvMessages(){
+  const c=getConv();
+  if(c){c.messages=state.messages;c.updatedAt=Date.now();
+    if(c.title==='محادثة جديدة'){
+      const userMsg=state.messages.find(m=>m.role==='user');
+      if(userMsg)c.title=truncate(userMsg.content,50);
+    }
+  }
+  renderSidebar();saveState();
+}
+
+function updateTypingIndicator(show){
+  const existing=chatMessages.querySelector('.typing');
+  if(show&&!existing){
+    const div=document.createElement('div');
+    div.className='typing';
+    div.innerHTML=`<div class="msg-avatar ai">✦</div><div class="typing-dots"><span class="typing-dot"></span><span class="typing-dot"></span><span class="typing-dot"></span></div>`;
+    chatMessages.appendChild(div);
+    scrollToBottom();
+  }else if(!show&&existing){
+    existing.remove();
+  }
+}
+
+function copyMsg(i){
+  const msg=state.messages[i];
+  if(!msg)return;
+  navigator.clipboard.writeText(msg.content).catch(()=>{
+    const ta=document.createElement('textarea');
+    ta.value=msg.content;document.body.appendChild(ta);ta.select();document.execCommand('copy');document.body.removeChild(ta);
+  });
+}
+
+function retryMsg(){
+  const userMsgs=state.messages.filter(m=>m.role==='user');
+  if(!userMsgs.length)return;
+  const last=userMsgs[userMsgs.length-1];
+  // Remove last AI message if exists
+  if(state.messages[state.messages.length-1]?.role==='assistant'){
+    state.messages.pop();
+  }
+  renderMessages();saveState();
+  doSend(last.content,last.files||[],last.images||[]);
+}
+
+function startEdit(i){
+  const userMsgs=state.messages.filter(m=>m.role==='user');
+  const msg=userMsgs[i];
+  if(!msg)return;
+  state.editIndex=i;
+  state.editContent=msg.content;
+  chatInput.value=msg.content;
+  editBar.style.display='flex';
+  chatInput.focus();
+  sendBtn.disabled=false;
+  chatInput.style.height='auto';
+  chatInput.style.height=Math.min(chatInput.scrollHeight,150)+'px';
+}
+editCancel.addEventListener('click',()=>{
+  state.editIndex=-1;editBar.style.display='none';
+  chatInput.value='';chatInput.style.height='auto';sendBtn.disabled=true;
+});
+
+// ===== FILE UPLOAD =====
+let uploadFiles=[];
+
+function openUpload(){uploadOverlay.classList.add('show');uploadModal.classList.add('show');uploadFiles=[];renderSelected();uploadConfirm.disabled=true;uploadConfirm.textContent='رفع (0)';uploadError.classList.remove('show');}
+function closeUpload(){uploadOverlay.classList.remove('show');uploadModal.classList.remove('show');}
+
+fileBtn.addEventListener('click',openUpload);
+uploadClose.addEventListener('click',closeUpload);
+uploadCancel.addEventListener('click',closeUpload);
+uploadOverlay.addEventListener('click',closeUpload);
+
+filesBtn.addEventListener('click',()=>fileInput.click());
+imagesBtn.addEventListener('click',()=>imageInput.click());
+
+fileInput.addEventListener('change',()=>{addFiles(fileInput.files);fileInput.value='';});
+imageInput.addEventListener('change',()=>{addFiles(imageInput.files);imageInput.value='';});
+
+// Drag & drop
+dropzone.addEventListener('dragover',e=>{e.preventDefault();dropzone.classList.add('dragover');});
+dropzone.addEventListener('dragleave',()=>dropzone.classList.remove('dragover'));
+dropzone.addEventListener('drop',e=>{e.preventDefault();dropzone.classList.remove('dragover');addFiles(e.dataTransfer.files);});
+
+function addFiles(files){
+  const errors=[];
+  Array.from(files).forEach(f=>{
+    if(!isAllowed(f))errors.push(`${f.name}: نوع الملف غير مدعوم`);
+    else if(f.size>MAX_FILE_SIZE)errors.push(`${f.name}: الحجم يتجاوز 20MB`);
+    else uploadFiles.push(f);
+  });
+  if(errors.length){uploadError.textContent=errors.join('\n');uploadError.classList.add('show');}
+  else uploadError.classList.remove('show');
+  renderSelected();
+}
+
+function renderSelected(){
+  selectedFilesDiv.innerHTML='';
+  uploadFiles.forEach((f,i)=>{
+    const div=document.createElement('div');
+    div.className='sfile';
+    div.innerHTML=`
+      <span class="sfile-icon">${isImage(f)?'🖼':'📄'}</span>
+      <div class="sfile-info"><div class="sfile-name">${f.name}</div><div class="sfile-size">${fmtSize(f.size)}</div></div>
+      <button class="sfile-remove" data-idx="${i}">✕</button>
+    `;
+    div.querySelector('.sfile-remove').addEventListener('click',()=>{
+      uploadFiles.splice(i,1);renderSelected();
+    });
+    selectedFilesDiv.appendChild(div);
+  });
+  uploadConfirm.disabled=uploadFiles.length===0;
+  uploadConfirm.textContent=`رفع (${uploadFiles.length})`;
+}
+
+uploadConfirm.addEventListener('click',async()=>{
+  if(!uploadFiles.length)return;
+  closeUpload();
+  const fileInfos=[];
+  const imageBases=[];
+
+  for(const f of uploadFiles){
+    if(isImage(f)){
+      const b64=await fileToBase64(f);
+      imageBases.push(b64);
+    }else{
+      const content=await fileToContent(f);
+      fileInfos.push({name:f.name,type:f.type,size:f.size,content});
+    }
+  }
+  uploadFiles=[];
+
+  if(imageBases.length&&fileInfos.length){
+    await doSend(`[تم رفع ${imageBases.length} صورة و ${fileInfos.length} ملف للتحليل]`,fileInfos,imageBases);
+  }else if(imageBases.length){
+    await doSend(`[تم رفع ${imageBases.length} صورة للتحليل]`,[],imageBases);
+  }else if(fileInfos.length){
+    await doSend(`[تم رفع ${fileInfos.length} ملف للتحليل]`,fileInfos,[]);
+  }
+});
+
+function fileToBase64(file){
+  return new Promise((res,rej)=>{
+    const r=new FileReader();
+    r.onload=()=>res(r.result.split(',')[1]);
+    r.onerror=rej;r.readAsDataURL(file);
+  });
+}
+function fileToContent(file){
+  return new Promise((res,rej)=>{
+    const r=new FileReader();
+    r.onload=()=>{
+      const result=r.result;
+      if(typeof result==='string'&&result.startsWith('data:'))res(result.split(',')[1]||result);
+      else res(result);
+    };
+    r.onerror=rej;
+    if(file.type.includes('text')||file.type.includes('json')||file.type.includes('csv'))r.readAsText(file);
+    else r.readAsDataURL(file);
+  });
+}
+
+// Image button in chat
+imageBtn.addEventListener('click',()=>hiddenImageInput.click());
+hiddenImageInput.addEventListener('change',async()=>{
+  if(!hiddenImageInput.files.length)return;
+  const bases=[];
+  for(const f of hiddenImageInput.files){
+    const b64=await fileToBase64(f);
+    bases.push(b64);
+  }
+  hiddenImageInput.value='';
+  if(bases.length)await doSend(`[تم رفع ${bases.length} صورة للتحليل]`,[],bases);
+});
+
+// ===== AUTO-RESIZE TEXTAREA =====
+chatInput.style.height='auto';
+
+// ===== KEYBOARD SHORTCUTS =====
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape'){
+    if(uploadModal.classList.contains('show'))closeUpload();
+    else if(state.editIndex>=0){editCancel.click();}
+  }
+  if(e.ctrlKey&&e.key==='/'){
+    e.preventDefault();
+    chatInput.focus();
+  }
+});
+
+// ===== INIT =====
+initParticles();
+nameInput.focus();
+startBtn.disabled=true;
 </script>
+
 </body>
 </html>
