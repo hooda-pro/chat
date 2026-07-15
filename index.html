@@ -282,6 +282,14 @@ header{
 .chat-input-btn{background:none;color:var(--text3);cursor:pointer;padding:8px;border-radius:8px;font-size:18px;line-height:1;transition:all .2s;min-width:36px;min-height:36px;display:flex;align-items:center;justify-content:center}
 .chat-input-btn:active{background:var(--bg3);color:var(--text)}
 .chat-input-field{flex:1;background:transparent;color:var(--text);resize:none;padding:8px 8px;font-size:15px;line-height:1.5;max-height:120px;min-height:24px}
+.attach-preview{display:flex;flex-wrap:wrap;gap:6px;padding:8px 8px 0}
+.attach-preview:empty{display:none;padding:0}
+.attach-chip{display:flex;align-items:center;gap:6px;background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:4px 6px 4px 4px;font-size:12px;color:var(--text2);max-width:180px}
+.attach-chip img{width:24px;height:24px;object-fit:cover;border-radius:6px;flex-shrink:0}
+.attach-chip .attach-icon{font-size:14px;flex-shrink:0}
+.attach-chip .attach-name{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:110px}
+.attach-chip .attach-remove{background:none;color:var(--text3);cursor:pointer;font-size:13px;padding:2px;line-height:1;flex-shrink:0}
+.attach-chip .attach-remove:hover{color:var(--text)}
 .chat-send-btn{padding:10px 12px;border-radius:10px;cursor:pointer;transition:all .3s;font-size:18px;line-height:1;background:var(--bg3);color:var(--text3);flex-shrink:0;min-width:42px;min-height:42px;display:flex;align-items:center;justify-content:center}
 .chat-send-btn.active{background:linear-gradient(to left,var(--primary2),var(--purple));color:#fff;box-shadow:0 0 20px rgba(99,102,241,.2)}
 .chat-send-btn:disabled{opacity:.4;cursor:default}
@@ -449,6 +457,7 @@ header{
       </div>
       <div class="chat-input-wrap" id="inputWrap">
         <div class="chat-input-inner">
+          <div class="attach-preview" id="attachPreview"></div>
           <div class="chat-input-row">
             <div class="chat-input-actions">
               <button class="chat-input-btn" id="fileBtn" title="رفع ملف">📎</button>
@@ -508,6 +517,8 @@ header{
 // ===== CONFIG =====
 const GROQ_API_KEY='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';
 const GROQ_MODEL='openai/gpt-oss-120b';
+const OPENROUTER_API_KEY='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';
+const VISION_MODEL='google/gemma-4-31b-it:free'; // موديل مساعد يدعم تحليل الصور عبر OpenRouter
 const SITE_NAME='NovaMind AI';
 const MAX_FILE_SIZE=20*1024*1024;
 const ALLOWED_TYPES=['application/pdf','application/msword','application/vnd.openxmlformats-officedocument.wordprocessingml.document','application/vnd.ms-excel','application/vnd.openxmlformats-officedocument.spreadsheetml.sheet','text/csv','text/plain','application/json','application/zip','application/x-zip-compressed','image/png','image/jpeg','image/webp','image/gif'];
@@ -538,7 +549,7 @@ let state={userName:'',theme:'dark',conversations:[],currentId:null,messages:[],
 const nameInput=$('nameInput'),startBtn=$('startBtn'),welcome=$('welcome'),app=$('app');
 const sidebar=$('sidebar'),sidebarToggle=$('sidebarToggle'),sidebarClose=$('sidebarClose'),sidebarUser=$('sidebarUser');
 const chatList=$('chatList'),searchChats=$('searchChats'),newChatBtn=$('newChatBtn'),logoutBtn=$('logoutBtn');
-const chatMessages=$('chatMessages'),chatInput=$('chatInput'),sendBtn=$('sendBtn'),themeToggle=$('themeToggle');
+const chatMessages=$('chatMessages'),chatInput=$('chatInput'),sendBtn=$('sendBtn'),themeToggle=$('themeToggle'),attachPreview=$('attachPreview');
 const editBar=$('editBar'),editCancel=$('editCancel');
 const fileBtn=$('fileBtn'),imageBtn=$('imageBtn');
 const uploadOverlay=$('uploadOverlay'),uploadModal=$('uploadModal'),uploadClose=$('uploadClose'),uploadCancel=$('uploadCancel'),uploadConfirm=$('uploadConfirm');
@@ -767,9 +778,62 @@ function renderMd(t){
   return h;
 }
 
+// ===== IMAGE ANALYSIS (via OpenRouter vision model) =====
+async function analyzeImages(images){
+  const descriptions=[];
+  for(const img of images){
+    try{
+      const res=await fetch('https://openrouter.ai/api/v1/chat/completions',{
+        method:'POST',
+        headers:{'Content-Type':'application/json','Authorization':`Bearer ${OPENROUTER_API_KEY}`},
+        body:JSON.stringify({
+          model:VISION_MODEL,
+          messages:[{role:'user',content:[
+            {type:'text',text:'صف هذه الصورة بالتفصيل باللغة العربية: العناصر الظاهرة، أي نصوص مكتوبة فيها، والسياق العام. اجعل الوصف دقيقاً ومفيداً.'},
+            {type:'image_url',image_url:{url:`data:image/jpeg;base64,${img}`}}
+          ]}],
+          max_tokens:1000
+        })
+      });
+      if(!res.ok){descriptions.push('تعذر تحليل هذه الصورة.');continue}
+      const data=await res.json();
+      descriptions.push(data.choices?.[0]?.message?.content?.trim()||'تعذر تحليل هذه الصورة.');
+    }catch(e){descriptions.push('تعذر تحليل هذه الصورة.')}
+  }
+  return descriptions;
+}
+
+// ===== PENDING ATTACHMENTS (attached to the input, sent only on send) =====
+let pendingFiles=[];   // {name,type,size,content}
+let pendingImages=[];  // {name,b64}
+
+function renderAttachPreview(){
+  attachPreview.innerHTML='';
+  pendingImages.forEach((img,i)=>{
+    const chip=document.createElement('div');chip.className='attach-chip';
+    chip.innerHTML=`<img src="data:image/jpeg;base64,${img.b64}" alt=""><span class="attach-name">${escHtml(img.name||'صورة')}</span><button class="attach-remove" data-type="img" data-idx="${i}">✕</button>`;
+    attachPreview.appendChild(chip);
+  });
+  pendingFiles.forEach((f,i)=>{
+    const chip=document.createElement('div');chip.className='attach-chip';
+    chip.innerHTML=`<span class="attach-icon">📄</span><span class="attach-name">${escHtml(f.name)}</span><button class="attach-remove" data-type="file" data-idx="${i}">✕</button>`;
+    attachPreview.appendChild(chip);
+  });
+  attachPreview.querySelectorAll('.attach-remove').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      const idx=+btn.dataset.idx;
+      if(btn.dataset.type==='img')pendingImages.splice(idx,1);else pendingFiles.splice(idx,1);
+      renderAttachPreview();updateSendBtnState();
+    });
+  });
+}
+function updateSendBtnState(){
+  sendBtn.disabled=(!chatInput.value.trim()&&!pendingFiles.length&&!pendingImages.length)||state.isLoading;
+}
+
 // ===== INPUT =====
 chatInput.addEventListener('input',()=>{
-  sendBtn.disabled=!chatInput.value.trim()||state.isLoading;
+  updateSendBtnState();
   chatInput.style.height='auto';chatInput.style.height=Math.min(chatInput.scrollHeight,120)+'px';
 });
 chatInput.addEventListener('keydown',e=>{
@@ -786,9 +850,20 @@ async function sendMessage(){
     await doSend(txt,orig?.files||[],orig?.images||[]);
     return;
   }
-  const txt=chatInput.value.trim();if(!txt||state.isLoading)return;
-  chatInput.value='';sendBtn.disabled=true;chatInput.style.height='auto';
-  await doSend(txt,[],[]);
+  const txt=chatInput.value.trim();
+  if(!txt&&!pendingFiles.length&&!pendingImages.length)return;
+  if(state.isLoading)return;
+  const filesToSend=pendingFiles.map(f=>({name:f.name,type:f.type,size:f.size,content:f.content}));
+  const imagesToSend=pendingImages.map(i=>i.b64);
+  let content=txt;
+  if(!content){
+    const parts=[];
+    if(imagesToSend.length)parts.push(`${imagesToSend.length} صورة`);
+    if(filesToSend.length)parts.push(`${filesToSend.length} ملف`);
+    content=`[تم إرفاق ${parts.join(' و')}]`;
+  }
+  chatInput.value='';pendingFiles=[];pendingImages=[];renderAttachPreview();sendBtn.disabled=true;chatInput.style.height='auto';
+  await doSend(content,filesToSend,imagesToSend);
 }
 
 async function doSend(content,files,images){
@@ -796,6 +871,11 @@ async function doSend(content,files,images){
   state.messages.push(userMsg);updateConv();renderMessages();saveState();
   state.isLoading=true;sendBtn.disabled=true;showTyping(true);
   try{
+    // الموديل الأساسي (Groq) لا يدعم الصور، فنستخدم موديل مساعد لتحليلها ووصفها نصياً
+    if(images.length){
+      userMsg.imageDescriptions=await analyzeImages(images);
+      saveState();
+    }
     const sysPrompt=`أنت ${SITE_NAME}، مساعد ذكاء اصطناعي متطور. اسمك ${SITE_NAME} وليس ChatGPT أو Claude أو Gemini أو أي مساعد آخر.
 
 معلومات عنك:
@@ -815,16 +895,15 @@ async function doSend(content,files,images){
 - أنت مساعد مستقل تم تطويره بواسطة Mahmoud Ahmed Saeed`;
 
     const apiMsgs=[{role:'system',content:sysPrompt},...state.messages.map(m=>{
-      if(m.role==='user'){const parts=[];if(m.content)parts.push({type:'text',text:m.content});if(m.files)for(const f of m.files)parts.push({type:'text',text:`[الملف: ${f.name}]\n\n${f.content}`});if(m.images)for(const img of m.images)parts.push({type:'image_url',image_url:{url:`data:image/jpeg;base64,${img}`,detail:'high'}});return{role:'user',content:parts.length===1?parts[0].text:parts}}
+      if(m.role==='user'){
+        const parts=[];
+        if(m.content)parts.push({type:'text',text:m.content});
+        if(m.files)for(const f of m.files)parts.push({type:'text',text:`[الملف: ${f.name}]\n\n${f.content}`});
+        if(m.imageDescriptions)for(const d of m.imageDescriptions)parts.push({type:'text',text:`[وصف صورة مرفوعة من المستخدم]: ${d}`});
+        return{role:'user',content:parts.length===1?parts[0].text:parts}
+      }
       return{role:'assistant',content:m.content}
     })];
-
-    const lastUser=apiMsgs.slice().reverse().find(m=>m.role==='user');
-    if(lastUser&&(files.length||images.length)){
-      if(typeof lastUser.content==='string')lastUser.content=[{type:'text',text:lastUser.content}];
-      for(const f of files)lastUser.content.push({type:'text',text:`[الملف: ${f.name}]\n\n${f.content}`});
-      for(const img of images)lastUser.content.push({type:'image_url',image_url:{url:`data:image/jpeg;base64,${img}`,detail:'high'}});
-    }
 
     state.streamingContent='';
     const res=await fetch('https://api.groq.com/openai/v1/chat/completions',{
@@ -844,7 +923,7 @@ async function doSend(content,files,images){
     const errMsg={id:genId(),role:'assistant',content:`عذراً، حدث خطأ: ${err.message}`,timestamp:Date.now()};
     state.messages.push(errMsg);updateConv();renderMessages();saveState();
   }finally{
-    state.isLoading=false;showTyping(false);sendBtn.disabled=!chatInput.value.trim();chatInput.focus()
+    state.isLoading=false;showTyping(false);updateSendBtnState();chatInput.focus()
   }
 }
 
@@ -882,13 +961,27 @@ dropzone.addEventListener('drop',e=>{e.preventDefault();dropzone.classList.remov
 
 function addUFiles(files){const errors=[];Array.from(files).forEach(f=>{if(!isAllowed(f))errors.push(`${f.name}: نوع الملف غير مدعوم`);else if(f.size>MAX_FILE_SIZE)errors.push(`${f.name}: الحجم يتجاوز 20MB`);else uploadFiles.push(f)});if(errors.length){uploadError.textContent=errors.join('\n');uploadError.classList.add('show')}else uploadError.classList.remove('show');renderSFiles()}
 function renderSFiles(){selectedFilesDiv.innerHTML='';uploadFiles.forEach((f,i)=>{const div=document.createElement('div');div.className='sfile';div.innerHTML=`<span class="sfile-icon">${isImage(f)?'🖼':'📄'}</span><div class="sfile-info"><div class="sfile-name">${escHtml(f.name)}</div><div class="sfile-size">${fmtSize(f.size)}</div></div><button class="sfile-remove" data-idx="${i}">✕</button>`;div.querySelector('.sfile-remove').addEventListener('click',()=>{uploadFiles.splice(i,1);renderSFiles()});selectedFilesDiv.appendChild(div)});uploadConfirm.disabled=uploadFiles.length===0;uploadConfirm.textContent=`رفع (${uploadFiles.length})`}
-uploadConfirm.addEventListener('click',async()=>{if(!uploadFiles.length)return;closeUpload();const fInfos=[];const iBases=[];for(const f of uploadFiles){if(isImage(f))iBases.push(await fileToB64(f));else fInfos.push({name:f.name,type:f.type,size:f.size,content:await fileToContent(f)})}uploadFiles=[];if(iBases.length&&fInfos.length)await doSend(`[تم رفع ${iBases.length} صورة و ${fInfos.length} ملف]`,fInfos,iBases);else if(iBases.length)await doSend(`[تم رفع ${iBases.length} صورة للتحليل]`,[],iBases);else if(fInfos.length)await doSend(`[تم رفع ${fInfos.length} ملف للتحليل]`,fInfos,[])});
+uploadConfirm.addEventListener('click',async()=>{
+  if(!uploadFiles.length)return;
+  closeUpload();
+  for(const f of uploadFiles){
+    if(isImage(f))pendingImages.push({name:f.name,b64:await fileToB64(f)});
+    else pendingFiles.push({name:f.name,type:f.type,size:f.size,content:await fileToContent(f)});
+  }
+  uploadFiles=[];
+  renderAttachPreview();updateSendBtnState();chatInput.focus();
+});
 
 function fileToB64(file){return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result.split(',')[1]);r.onerror=rej;r.readAsDataURL(file)})}
 function fileToContent(file){return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>{const result=r.result;if(typeof result==='string'&&result.startsWith('data:'))res(result.split(',')[1]||result);else res(result)};r.onerror=rej;if(file.type.includes('text')||file.type.includes('json')||file.type.includes('csv'))r.readAsText(file);else r.readAsDataURL(file)})}
 
 imageBtn.addEventListener('click',()=>hiddenImageInput.click());
-hiddenImageInput.addEventListener('change',async()=>{if(!hiddenImageInput.files.length)return;const bases=[];for(const f of hiddenImageInput.files)bases.push(await fileToB64(f));hiddenImageInput.value='';if(bases.length)await doSend(`[تم رفع ${bases.length} صورة للتحليل]`,[],bases)});
+hiddenImageInput.addEventListener('change',async()=>{
+  if(!hiddenImageInput.files.length)return;
+  for(const f of hiddenImageInput.files)pendingImages.push({name:f.name,b64:await fileToB64(f)});
+  hiddenImageInput.value='';
+  renderAttachPreview();updateSendBtnState();chatInput.focus();
+});
 
 // ===== KEYBOARD SHORTCUTS (DESKTOP) =====
 document.addEventListener('keydown',e=>{
