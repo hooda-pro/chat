@@ -431,32 +431,28 @@ function trunc(t,n){return t.length<=n?t:t.substring(0,n)+'...'}
 function fmtSize(b){if(!b)return'0 B';const k=1024,s=['B','KB','MB','GB'];const i=Math.floor(Math.log(b)/Math.log(k));return parseFloat((b/Math.pow(k,i)).toFixed(1))+' '+s[i]}
 function extractFilesFromResponse(text){
   const files=[];
-  // نمط 1: ```python\n# filename: myfile.py\n...code...```
-  const blockRegex1=/```(\w+)\n(?:#\s*filename:\s*([^\n]+)\n[\s\S]*?```)/g;
+  // نمط 1: ```lang\n# filename: myfile.py\n...code```
+  const blockRegex1=/```(\w+)\n(?:#\s*filename:\s*([^\n]+)\n)([\s\S]*?)```/g;
   let match;
   while((match=blockRegex1.exec(text))!==null){
-    const lang=match[1];
-    let fname=match[2]?.trim();
-    // نأخذ الكود كامل
-    const startIdx=match.index;
-    const blockEnd=text.indexOf('```',startIdx+3);
-    if(blockEnd===-1)continue;
-    const fullBlock=text.substring(startIdx,blockEnd+3);
-    const firstNewline=fullBlock.indexOf('\n');
-    const lastBacktick=fullBlock.lastIndexOf('```');
-    const code=fullBlock.substring(firstNewline+1,lastBacktick).trim();
+    const lang=match[1],fname=match[2]?.trim(),code=match[3].trim();
     if(!code||code.length<10)continue;
-    // لو مافيش filename نستخدم اسم افتراضي
-    if(!fname){
-      const extMap={python:'code.py',javascript:'code.js',typescript:'code.ts',html:'code.html',css:'code.css',cpp:'code.cpp',java:'code.java',go:'code.go',rust:'code.rs',ruby:'code.rb',php:'code.php',swift:'code.swift',kotlin:'code.kt',dart:'code.dart',sql:'code.sql',bash:'code.sh',shell:'code.sh',yaml:'code.yml',json:'code.json',xml:'code.xml',markdown:'readme.md',text:'code.txt',plain:'code.txt','':''};
-      fname=extMap[lang]||('code.'+lang);
-    }
-    if(fname&&!files.some(x=>x.name===fname)){
-      files.push({name:fname,type:'text/plain',size:new Blob([code]).size,content:code});
-    }
+    const name=fname||extMap[lang]||('code.'+lang);
+    if(name&&!files.some(x=>x.name===name))
+      files.push({name,type:'text/plain',size:new Blob([code]).size,content:code});
+  }
+  // نمط 2: ```lang\n...code``` بدون filename
+  const blockRegex2=/```(\w+)\n(?!\s*#\s*filename:)([\s\S]*?)```/g;
+  while((match=blockRegex2.exec(text))!==null){
+    const lang=match[1],code=match[2].trim();
+    if(!code||code.length<10)continue;
+    const name=extMap[lang]||('code.'+lang);
+    if(name&&!files.some(x=>x.name===name))
+      files.push({name,type:'text/plain',size:new Blob([code]).size,content:code});
   }
   return files;
 }
+const extMap={python:'code.py',javascript:'code.js',typescript:'code.ts',html:'code.html',css:'code.css',cpp:'code.cpp',java:'code.java',go:'code.go',rust:'code.rs',ruby:'code.rb',php:'code.php',swift:'code.swift',kotlin:'code.kt',dart:'code.dart',sql:'code.sql',bash:'code.sh',shell:'code.sh',yaml:'code.yml',json:'code.json',xml:'code.xml',markdown:'readme.md',text:'code.txt',plain:'code.txt','':''};
 function esc(t){const d=document.createElement('div');d.textContent=t;return d.innerHTML}
 function save(){try{localStorage.setItem('nm-state',JSON.stringify({conversations:state.conversations,currentId:state.currentId,theme:state.theme,userName:state.userName}))}catch(e){}}
 function load(){try{const d=JSON.parse(localStorage.getItem('nm-state'));if(d){state.conversations=d.conversations||[];state.currentId=d.currentId||null;state.theme=d.theme||'dark';state.userName=d.userName||''}}catch(e){}}
@@ -795,17 +791,17 @@ async function doSend(content,files,images){
     }
     function prepFileContent(f){
       const lines=f.content.split('\n');
-      if(lines.length<=100)return f.content;
-      // للملفات الكبيرة: نرسل أول 100 سطر + هيكل الملف
+      if(lines.length<=500)return f.content;
+      // للملفات الكبيرة: نرسل أول 500 سطر + هيكل الملف
       addLog(`🔍 ${f.name}: ${lines.length.toLocaleString()} سطر، استخراج الهيكل...`,'warn');
-      const head=lines.slice(0,100).join('\n');
+      const head=lines.slice(0,500).join('\n');
       const skeleton=extractSkeleton(f.content);
       let skelText='';
-      if(skeleton.length>0&&skeleton.length<200){
+      if(skeleton.length>0&&skeleton.length<500){
         skelText='\n\n--- هيكل الملف (skeleton) ---\n';
         for(const s of skeleton)skelText+=`${s.line}: ${s.text}\n`;
       }
-      const totalHidden=lines.length-100;
+      const totalHidden=lines.length-500;
       return head+skelText+`\n\n... [${totalHidden.toLocaleString()} سطر مخفية. أخبرني أي جزء تريد رؤيته]`;
     }
     // نحتفظ بآخر رسالتين فقط + أول رسالة ترحيب
@@ -867,7 +863,7 @@ async function doSend(content,files,images){
         res=await fetch('https://api.groq.com/openai/v1/chat/completions',{
           method:'POST',
           headers:{'Content-Type':'application/json','Authorization':`Bearer ${GROQ_API_KEY}`},
-          body:JSON.stringify({model:currentModel,messages:apiMsgs,temperature:0.7,max_tokens:2048,top_p:1,stream:true})
+          body:JSON.stringify({model:currentModel,messages:apiMsgs,temperature:0.7,max_tokens:8192,top_p:1,stream:true})
         });
         if(res.ok)break;
         const errText=await res.text();
