@@ -252,38 +252,6 @@ header{
 .msg-bubble pre code{background:none;padding:14px;display:block;font-size:13px;overflow-x:auto;text-align:left;line-height:1.6}
 .msg-bubble hr{border:none;border-top:1px solid var(--border);margin:12px 0}
 .msg-bubble img{max-width:100%;border-radius:8px;margin:8px 0}
-
-/* ===== SEARCH FEATURE ===== */
-.chat-input-btn.active{background:rgba(99,102,241,.15);color:var(--primary3)}
-.chat-input-btn.active .btn-icon{filter:drop-shadow(0 0 4px var(--primary3))}
-.search-status{
-  display:flex;align-items:center;gap:8px;padding:8px 14px;margin:0 0 8px 44px;
-  background:rgba(99,102,241,.08);border:1px solid rgba(99,102,241,.18);
-  border-radius:10px;font-size:12.5px;color:var(--primary3);width:fit-content;
-  animation:fadeIn .3s ease-out;
-}
-.search-status .dot{width:6px;height:6px;border-radius:50%;background:var(--primary3);animation:pulse 1s ease-in-out infinite}
-.search-sources{margin:0 0 10px 44px}
-.search-sources-toggle{
-  display:inline-flex;align-items:center;gap:6px;padding:7px 12px;
-  background:var(--bg3);border:1px solid var(--border);border-radius:20px;
-  font-size:12px;color:var(--text2);cursor:pointer;transition:all .2s;
-}
-.search-sources-toggle:hover{background:var(--bg4);color:var(--text)}
-.search-sources-toggle .n{background:var(--primary);color:#fff;border-radius:50%;width:18px;height:18px;display:inline-flex;align-items:center;justify-content:center;font-size:10px;font-weight:700}
-.search-sources-list{display:none;flex-direction:column;gap:6px;margin-top:8px}
-.search-sources-list.open{display:flex}
-.search-source-item{
-  display:flex;align-items:flex-start;gap:8px;padding:10px 12px;
-  background:var(--bg2);border:1px solid var(--border);border-radius:10px;
-  font-size:12.5px;transition:all .2s;
-}
-.search-source-item:hover{border-color:var(--primary3)}
-.search-source-item a{color:var(--text);font-weight:600;display:block;margin-bottom:2px}
-.search-source-item a:hover{color:var(--primary3)}
-.search-source-item .url{color:var(--text3);font-size:11px;direction:ltr;text-align:right;display:block;margin-bottom:4px}
-.search-source-item .snippet{color:var(--text2);line-height:1.5}
-.search-source-num{flex-shrink:0;width:20px;height:20px;border-radius:50%;background:var(--bg4);color:var(--text2);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700}
 .msg-files{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
 .msg-file{display:flex;align-items:center;gap:6px;padding:6px 10px;background:var(--bg3);border-radius:8px;font-size:13px;border:1px solid var(--border)}
 .msg-file .name{color:var(--text2);max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -547,10 +515,6 @@ header{
                 <span class="btn-icon">🖼</span>
                 <span class="btn-label">صورة</span>
               </button>
-              <button class="chat-input-btn" id="searchBtn" title="بحث في الإنترنت">
-                <span class="btn-icon">🌐</span>
-                <span class="btn-label">بحث</span>
-              </button>
             </div>
             <textarea class="chat-input-field" id="chatInput" rows="1" placeholder="اكتب رسالتك..." dir="rtl"></textarea>
             <button class="chat-send-btn" id="sendBtn" disabled>➤</button>
@@ -618,21 +582,12 @@ header{
 
 <script>
 // ===== CONFIG =====
-// Vision + Web-search-aware model handled via OpenRouter (cohere/north-mini-code:free)
-// Text/file chat stays on Groq for speed
+// Vision is handled by Anthropic API (claude-sonnet-4-6) — Groq does NOT support vision on most models
+// Text/file chat stays on Groq for speed; images route to Anthropic
 const GROQ_API_KEY = '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';
 const GROQ_MODEL = 'llama-3.3-70b-versatile'; // fast text model on Groq
+const ANTHROPIC_MODEL = 'claude-sonnet-4-6'; // vision + complex reasoning
 const SITE_NAME = 'NovaMind AI';
-
-// ⚠️ تحذير أمني: هذا المفتاح ظاهر لأي زائر يفتح "عرض المصدر" في المتصفح ويقدر يسرقه ويستخدمه على حسابك.
-// الطريقة الآمنة: تعمل سيرفر بسيط (Backend/Worker) يخزن المفتاح، والموقع يكلم السيرفر بتاعك مش OpenRouter مباشرة.
-const OPENROUTER_API_KEY = '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';
-const OPENROUTER_MODEL = 'cohere/north-mini-code:free';
-
-// ===== WEB SEARCH (مجاني - بدون مفتاح) =====
-// نستخدم DuckDuckGo HTML search عبر بروكسي CORS مجاني لأن DuckDuckGo نفسه بيمنع CORS من المتصفح مباشرة
-const SEARCH_PROXY = 'https://api.allorigins.win/raw?url=';
-const SEARCH_ENGINE_URL = 'https://html.duckduckgo.com/html/?q=';
 const MAX_FILE_SIZE = 20 * 1024 * 1024;
 // All file types accepted — no restrictions
 const ALLOWED_TYPES = null;
@@ -704,8 +659,7 @@ let state = {
   userName:'', theme:'dark', conversations:[], currentId:null,
   messages:[], isLoading:false, sidebarOpen:false,
   streamingContent:'', editIndex:-1,
-  pendingImages:[], // base64 images queued for next send (with full data url)
-  searchEnabled:false // whether web search is toggled on for the next message
+  pendingImages:[] // base64 images queued for next send (with full data url)
 };
 let currentAbortController = null;
 
@@ -716,7 +670,7 @@ const chatList=$('chatList'), searchChats=$('searchChats'), newChatBtn=$('newCha
 const chatMessages=$('chatMessages'), chatInput=$('chatInput'), sendBtn=$('sendBtn'), stopBtn=$('stopBtn');
 const themeToggle=$('themeToggle');
 const editBar=$('editBar'), editCancel=$('editCancel');
-const fileBtn=$('fileBtn'), imageBtn=$('imageBtn'), searchBtn=$('searchBtn');
+const fileBtn=$('fileBtn'), imageBtn=$('imageBtn');
 const uploadOverlay=$('uploadOverlay'), uploadModal=$('uploadModal'), uploadClose=$('uploadClose');
 const uploadCancel=$('uploadCancel'), uploadConfirm=$('uploadConfirm');
 const dropzone=$('dropzone'), fileInput=$('fileInput'), imageInput=$('imageInput');
@@ -1076,25 +1030,6 @@ function renderMsg(msg, i) {
     html += `</div>`;
   }
 
-  if (!isUser && msg.sources && msg.sources.length > 0) {
-    html += `<div class="search-sources">
-      <button class="search-sources-toggle" data-src-toggle="${i}">
-        <span>🌐 تم البحث في ${msg.sources.length} مواقع</span><span class="n">${msg.sources.length}</span>
-      </button>
-      <div class="search-sources-list" id="srcList-${i}">
-        ${msg.sources.map((s, si) => `
-          <div class="search-source-item">
-            <span class="search-source-num">${si+1}</span>
-            <div style="min-width:0;flex:1">
-              <a href="${escHtml(s.url)}" target="_blank" rel="noopener noreferrer">${escHtml(s.title)}</a>
-              <span class="url">${escHtml(s.url)}</span>
-              <span class="snippet">${escHtml(s.snippet)}</span>
-            </div>
-          </div>`).join('')}
-      </div>
-    </div>`;
-  }
-
   html += `<div class="msg-actions"><span class="msg-time">${fmtTime(msg.timestamp)}</span>`;
   if (!isUser && msg.id !== 'welcome') {
     html += `<button class="msg-action" data-copy="${i}" title="نسخ">📋</button>`;
@@ -1108,9 +1043,6 @@ function renderMsg(msg, i) {
   if (!isUser && msg.id !== 'welcome') {
     div.querySelector('[data-copy]')?.addEventListener('click', () => copyMsg(i));
     div.querySelector('[data-retry]')?.addEventListener('click', () => retryMsg());
-    div.querySelector('[data-src-toggle]')?.addEventListener('click', () => {
-      document.getElementById(`srcList-${i}`)?.classList.toggle('open');
-    });
   }
   if (isUser) div.querySelector('[data-edit]')?.addEventListener('click', () => startEdit(i));
 }
@@ -1186,55 +1118,6 @@ function updateImagePreview() {
   if (state.pendingImages.length > 0 && !state.isLoading) sendBtn.disabled = false;
 }
 
-// ===== SEARCH STATUS INDICATOR =====
-function showSearchStatus(show) {
-  let el = document.getElementById('searchStatusBox');
-  if (show) {
-    if (el) return;
-    el = document.createElement('div');
-    el.id = 'searchStatusBox';
-    el.className = 'search-status';
-    el.innerHTML = `<span class="dot"></span><span>🌐 بيبحث في الإنترنت...</span>`;
-    chatMessages.appendChild(el);
-    scrollToBottom();
-  } else if (el) {
-    el.remove();
-  }
-}
-
-// ===== WEB SEARCH TOGGLE =====
-searchBtn.addEventListener('click', () => {
-  state.searchEnabled = !state.searchEnabled;
-  searchBtn.classList.toggle('active', state.searchEnabled);
-  showToast(state.searchEnabled ? 'البحث في الإنترنت مفعّل 🌐 — هبحث قبل ما أجاوب' : 'تم إلغاء تفعيل البحث');
-});
-
-// يبحث في DuckDuckGo (مجاني، بدون مفتاح) ويرجع مصفوفة نتائج {title, url, snippet}
-async function webSearch(query, maxResults = 5) {
-  const target = SEARCH_ENGINE_URL + encodeURIComponent(query);
-  const res = await fetch(SEARCH_PROXY + encodeURIComponent(target));
-  if (!res.ok) throw new Error('تعذر الوصول لخدمة البحث');
-  const html = await res.text();
-  const doc = new DOMParser().parseFromString(html, 'text/html');
-  const results = [];
-  doc.querySelectorAll('.result').forEach(el => {
-    if (results.length >= maxResults) return;
-    const linkEl = el.querySelector('.result__a');
-    const snippetEl = el.querySelector('.result__snippet');
-    if (!linkEl) return;
-    let url = linkEl.getAttribute('href') || '';
-    // DuckDuckGo HTML يلف الروابط في redirect بصيغة //duckduckgo.com/l/?uddg=...
-    const m = url.match(/uddg=([^&]+)/);
-    if (m) url = decodeURIComponent(m[1]);
-    results.push({
-      title: linkEl.textContent.trim(),
-      url,
-      snippet: snippetEl ? snippetEl.textContent.trim() : ''
-    });
-  });
-  return results;
-}
-
 // ===== VISION IMAGE BUTTON =====
 imageBtn.addEventListener('click', () => hiddenImageInput.click());
 hiddenImageInput.addEventListener('change', async () => {
@@ -1277,7 +1160,6 @@ async function sendMessage() {
 // ===== CORE SEND =====
 async function doSend(content, files, images) {
   const hasImages = images && images.length > 0;
-  const doSearch = state.searchEnabled && content && content.trim() && !hasImages;
   const userMsg = {
     id: genId(), role:'user', content,
     timestamp: Date.now(),
@@ -1289,24 +1171,8 @@ async function doSend(content, files, images) {
   state.isLoading = true;
   sendBtn.disabled = true;
   stopBtn.classList.add('show');
-  currentAbortController = new AbortController();
-
-  let searchResults = [];
-  let searchContext = '';
-  if (doSearch) {
-    showSearchStatus(true);
-    try {
-      searchResults = await webSearch(content, 5);
-      if (searchResults.length) {
-        searchContext = '\n\n[نتائج بحث حديثة من الإنترنت متعلقة بسؤال المستخدم — استخدمها للإجابة بدقة وحداثة]:\n' +
-          searchResults.map((r, i) => `${i+1}. ${r.title}\n${r.snippet}\nرابط: ${r.url}`).join('\n\n');
-      }
-    } catch (e) {
-      showToast('تعذر البحث في الإنترنت، هجاوب بمعلوماتي المتاحة');
-    }
-    showSearchStatus(false);
-  }
   showTyping(true);
+  currentAbortController = new AbortController();
 
   try {
     const sysPrompt = `أنت ${SITE_NAME}، مساعد ذكاء اصطناعي متطور. اسمك ${SITE_NAME} وليس ChatGPT أو Claude أو Gemini أو أي مساعد آخر.
@@ -1329,45 +1195,41 @@ async function doSend(content, files, images) {
 - أنت مساعد مستقل تم تطويره بواسطة Mahmoud Ahmed Saeed`;
 
     if (hasImages) {
-      // ===== VISION PATH: OpenRouter (cohere/north-mini-code:free) =====
-      const orMsgs = [{role:'system', content: sysPrompt}, ...state.messages.map(m => {
+      // ===== VISION PATH: Anthropic API =====
+      const anthropicMsgs = state.messages.map(m => {
         if (m.role === 'user') {
           const parts = [];
           if (m.content) parts.push({type:'text', text: m.content});
           if (m.files) m.files.forEach(f => parts.push({type:'text', text:`[الملف: ${f.name}]\n\n${f.content || ''}`}));
           if (m.images) m.images.forEach(img => {
             const isDataUrl = img.startsWith('data:');
-            const dataUrl = isDataUrl ? img : `data:image/jpeg;base64,${img}`;
-            parts.push({type:'image_url', image_url:{url: dataUrl}});
+            const mediaType = isDataUrl ? getMediaType(img) : 'image/jpeg';
+            const b64 = isDataUrl ? img.split(',')[1] : img;
+            parts.push({type:'image', source:{type:'base64', media_type: mediaType, data: b64}});
           });
           return {role:'user', content: parts.length === 1 && parts[0].type === 'text' ? parts[0].text : parts};
         }
         return {role:'assistant', content: m.content};
-      })];
+      });
 
-      if (!OPENROUTER_API_KEY) {
-        throw new Error('⚠️ تحليل الصور غير مفعّل حالياً — لم يتم إضافة مفتاح OpenRouter API في إعدادات الموقع. تواصل مع مطور الموقع لإضافته.');
-      }
-
-      const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+      const res = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
-          'HTTP-Referer': window.location.origin,
-          'X-Title': SITE_NAME
+          'anthropic-version': '2023-06-01',
+          'anthropic-dangerous-direct-browser-access': 'true'
         },
         signal: currentAbortController.signal,
         body: JSON.stringify({
-          model: OPENROUTER_MODEL,
-          messages: orMsgs,
+          model: ANTHROPIC_MODEL,
           max_tokens: 4096,
+          system: sysPrompt,
+          messages: anthropicMsgs,
           stream: true
         })
       });
       if (!res.ok) {
         const err = await res.text();
-        if (res.status === 401) throw new Error('⚠️ مفتاح تحليل الصور غير صحيح أو منتهي. تواصل مع مطور الموقع.');
         throw new Error(`خطأ في تحليل الصورة ${res.status}: ${err}`);
       }
       const reader = res.body.getReader();
@@ -1385,8 +1247,11 @@ async function doSend(content, files, images) {
             if (data === '[DONE]') continue;
             try {
               const p = JSON.parse(data);
-              const d = p.choices?.[0]?.delta?.content || '';
-              if (d) { full += d; state.streamingContent = full; renderStreamingMsg(); }
+              if (p.type === 'content_block_delta' && p.delta?.type === 'text_delta') {
+                full += p.delta.text;
+                state.streamingContent = full;
+                renderStreamingMsg();
+              }
             } catch {}
           }
         }
@@ -1396,10 +1261,7 @@ async function doSend(content, files, images) {
 
     } else {
       // ===== TEXT/FILE PATH: Groq API (fast, streaming) =====
-      const finalSysPrompt = searchContext
-        ? sysPrompt + searchContext + '\n\nاذكر في إجابتك أنك استخدمت نتائج بحث حديثة، واعتمد عليها في الحقائق والأرقام والتواريخ.'
-        : sysPrompt;
-      const apiMsgs = [{role:'system', content: finalSysPrompt}, ...state.messages.map(m => {
+      const apiMsgs = [{role:'system', content: sysPrompt}, ...state.messages.map(m => {
         if (m.role === 'user') {
           const parts = [];
           if (m.content) parts.push({type:'text', text:m.content});
@@ -1445,7 +1307,7 @@ async function doSend(content, files, images) {
           }
         }
       }
-      const aiMsg = {id:genId(), role:'assistant', content:full, timestamp:Date.now(), sources: searchResults.length ? searchResults : undefined};
+      const aiMsg = {id:genId(), role:'assistant', content:full, timestamp:Date.now()};
       state.messages.push(aiMsg); updateConv(); state.streamingContent = ''; renderMessages(); saveState();
     }
 
@@ -1464,7 +1326,6 @@ async function doSend(content, files, images) {
   } finally {
     state.isLoading = false;
     showTyping(false);
-    showSearchStatus(false);
     stopBtn.classList.remove('show');
     sendBtn.disabled = !chatInput.value.trim() && state.pendingImages.length === 0;
     chatInput.focus();
