@@ -242,6 +242,12 @@ header{
 .msg-bubble code{background:var(--bg3);padding:2px 6px;border-radius:4px;font-size:13px;font-family:monospace}
 .msg-bubble pre{background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:14px;overflow-x:auto;margin:8px 0;direction:ltr;text-align:left;font-size:13px}
 .msg-bubble pre code{background:none;padding:0}
+.code-block{margin:8px 0}
+.code-block .code-block-head{display:flex;align-items:center;justify-content:space-between;background:var(--bg4);border:1px solid var(--border);border-bottom:none;border-radius:8px 8px 0 0;padding:6px 10px;direction:ltr}
+.code-block .code-lang{font-size:11px;color:var(--text2);text-transform:uppercase}
+.code-block .code-download-btn{background:var(--primary2);color:#fff;border-radius:6px;padding:4px 10px;font-size:12px;cursor:pointer}
+.code-block .code-download-btn:hover{opacity:.9}
+.code-block pre{margin:0;border-radius:0 0 8px 8px}
 .msg-bubble hr{border:none;border-top:1px solid var(--border);margin:12px 0}
 .msg-bubble img{max-width:100%;border-radius:8px;margin:8px 0}
 .msg-files{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
@@ -495,7 +501,7 @@ header{
       <button class="dropzone-btn" id="filesBtn">📄 ملفات</button>
       <button class="dropzone-btn" id="imagesBtn">🖼 صور</button>
     </div>
-    <input type="file" id="fileInput" multiple style="display:none" accept=".pdf,.doc,.docx,.txt,.xls,.xlsx,.csv,.json,.zip">
+    <input type="file" id="fileInput" multiple style="display:none">
     <input type="file" id="imageInput" multiple style="display:none" accept="image/png,image/jpeg,image/webp,image/gif">
   </div>
   <div class="allowed-types">
@@ -503,6 +509,7 @@ header{
     <span class="allowed-type">TXT</span><span class="allowed-type">XLS</span><span class="allowed-type">XLSX</span>
     <span class="allowed-type">CSV</span><span class="allowed-type">JSON</span><span class="allowed-type">ZIP</span>
     <span class="allowed-type">PNG</span><span class="allowed-type">JPG</span><span class="allowed-type">WebP</span><span class="allowed-type">GIF</span>
+    <span class="allowed-type">أكواد (PY, JS, JAVA, CPP…)</span><span class="allowed-type">وأي ملف آخر</span>
   </div>
   <div class="modal-error" id="uploadError"></div>
   <div class="selected-files" id="selectedFiles"></div>
@@ -523,6 +530,7 @@ const CODE_MODEL='cohere/north-mini-code:free'; // موديل مساعد مخص�
 const SITE_NAME='NovaMind AI';
 const MAX_FILE_SIZE=20*1024*1024;
 const ALLOWED_TYPES=['application/pdf','application/msword','application/vnd.openxmlformats-officedocument.wordprocessingml.document','application/vnd.ms-excel','application/vnd.openxmlformats-officedocument.spreadsheetml.sheet','text/csv','text/plain','application/json','application/zip','application/x-zip-compressed','image/png','image/jpeg','image/webp','image/gif'];
+const TEXT_EXTENSIONS=['txt','md','markdown','json','csv','tsv','xml','yaml','yml','ini','cfg','conf','env','log','py','js','jsx','mjs','cjs','ts','tsx','java','c','h','hpp','cpp','cc','cs','go','rs','rb','php','pl','sh','bash','zsh','ps1','sql','html','htm','css','scss','sass','less','vue','svelte','swift','kt','kts','dart','r','m','lua','scala','groovy','gradle','makefile','dockerfile','toml','graphql','proto','vb','asm','bat','cmd','gitignore','editorconfig'];
 
 // ===== UTILITY =====
 const $=id=>document.getElementById(id);
@@ -530,7 +538,11 @@ const isMobile=()=>window.innerWidth<1024;
 function genId(){return Date.now().toString(36)+Math.random().toString(36).substring(2)}
 function fmtTime(ts){const d=new Date(ts),n=new Date();const days=Math.floor((n-d)/86400000);if(days===0)return d.toLocaleTimeString('ar-SA',{hour:'2-digit',minute:'2-digit'});if(days===1)return'أمس';if(days<7)return d.toLocaleDateString('ar-SA',{weekday:'long'});return d.toLocaleDateString('ar-SA',{month:'short',day:'numeric'})}
 function truncate(t,n){return t.length<=n?t:t.substring(0,n)+'...'}
-function isAllowed(f){return ALLOWED_TYPES.includes(f.type)}
+function isAllowed(f){return true} // مسموح بأي نوع ملف
+function isTextFile(f){
+  const ext=(f.name.split('.').pop()||'').toLowerCase();
+  return f.type.startsWith('text/')||f.type.includes('json')||f.type.includes('csv')||f.type.includes('xml')||TEXT_EXTENSIONS.includes(ext);
+}
 function isImage(f){return f.type.startsWith('image/')}
 function fmtSize(b){if(!b)return'0 B';const k=1024,s=['B','KB','MB','GB'];const i=Math.floor(Math.log(b)/Math.log(k));return parseFloat((b/Math.pow(k,i)).toFixed(1))+' '+s[i]}
 function escHtml(t){const d=document.createElement('div');d.textContent=t;return d.innerHTML}
@@ -758,8 +770,29 @@ function renderStreamingMsg(){
 function scrollToBottom(){setTimeout(()=>{chatMessages.scrollTop=chatMessages.scrollHeight},30)}
 
 // ===== MARKDOWN =====
+let codeBlockStore={};
+let codeBlockCounter=0;
+const LANG_EXT={python:'py',py:'py',javascript:'js',js:'js',jsx:'jsx',typescript:'ts',ts:'ts',tsx:'tsx',java:'java',c:'c',cpp:'cpp','c++':'cpp',csharp:'cs',cs:'cs',go:'go',golang:'go',rust:'rs',rs:'rs',ruby:'rb',rb:'rb',php:'php',bash:'sh',sh:'sh',shell:'sh',zsh:'sh',sql:'sql',html:'html',css:'css',scss:'scss',json:'json',xml:'xml',yaml:'yaml',yml:'yaml',markdown:'md',md:'md',swift:'swift',kotlin:'kt',dart:'dart',r:'r',lua:'lua',vue:'vue'};
+function guessExt(lang){return LANG_EXT[(lang||'').toLowerCase()]||'txt'}
+function downloadTextFile(content,filename){
+  const blob=new Blob([content],{type:'text/plain;charset=utf-8'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');a.href=url;a.download=filename;document.body.appendChild(a);a.click();document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+chatMessages.addEventListener('click',e=>{
+  const btn=e.target.closest('.code-download-btn');if(!btn)return;
+  const item=codeBlockStore[btn.dataset.codeId];if(!item)return;
+  downloadTextFile(item.code,`ملف_معدل_${btn.dataset.codeId}.${guessExt(item.lang)}`);
+});
 function renderMd(t){
-  if(!t)return'';let h=escHtml(t);
+  if(!t)return'';
+  let raw=t.replace(/```(\w*)\n([\s\S]*?)```/g,(m,lang,code)=>{
+    const id='cb'+(++codeBlockCounter);
+    codeBlockStore[id]={code,lang};
+    return `\u0000${id}\u0000`;
+  });
+  let h=escHtml(raw);
   h=h.replace(/^### (.+)$/gm,'<h3>$1</h3>');
   h=h.replace(/^## (.+)$/gm,'<h2>$1</h2>');
   h=h.replace(/^# (.+)$/gm,'<h1>$1</h1>');
@@ -767,7 +800,10 @@ function renderMd(t){
   h=h.replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>');
   h=h.replace(/\*(.+?)\*/g,'<em>$1</em>');
   h=h.replace(/`([^`]+)`/g,'<code>$1</code>');
-  h=h.replace(/```(\w*)\n([\s\S]*?)```/g,(m,lang,code)=>`<pre><code>${escHtml(code)}</code></pre>`);
+  h=h.replace(/\u0000(cb\d+)\u0000/g,(m,id)=>{
+    const item=codeBlockStore[id];if(!item)return'';
+    return `<div class="code-block"><div class="code-block-head"><span class="code-lang">${escHtml(item.lang||'code')}</span><button class="code-download-btn" data-code-id="${id}">⬇ تحميل كملف</button></div><pre><code>${escHtml(item.code)}</code></pre></div>`;
+  });
   h=h.replace(/\[([^\]]+)\]\(([^)]+)\)/g,'<a href="$2" target="_blank">$1</a>');
   h=h.replace(/!\[([^\]]*)\]\(([^)]+)\)/g,'<img src="$2" alt="$1" loading="lazy">');
   h=h.replace(/^> (.+)$/gm,'<blockquote>$1</blockquote>');
@@ -778,6 +814,9 @@ function renderMd(t){
   h=h.replace(/\n\n/g,'</p><p>');h='<p>'+h+'</p>';h=h.replace(/<p><\/p>/g,'');
   return h;
 }
+
+const CODE_EXTENSIONS=['py','js','jsx','mjs','cjs','ts','tsx','java','c','h','hpp','cpp','cc','cs','go','rs','rb','php','pl','sh','bash','zsh','ps1','sql','html','htm','css','scss','sass','less','vue','svelte','swift','kt','kts','dart','r','m','lua','scala','groovy'];
+function hasCodeFile(files){return files.some(f=>CODE_EXTENSIONS.includes((f.name.split('.').pop()||'').toLowerCase()))}
 
 // ===== CODING REQUEST DETECTION =====
 function isCodingRequest(text){
@@ -872,7 +911,7 @@ async function sendMessage(){
   const txt=chatInput.value.trim();
   if(!txt&&!pendingFiles.length&&!pendingImages.length)return;
   if(state.isLoading)return;
-  const filesToSend=pendingFiles.map(f=>({name:f.name,type:f.type,size:f.size,content:f.content}));
+  const filesToSend=pendingFiles.map(f=>({name:f.name,type:f.type,size:f.size,content:f.content,isText:f.isText}));
   const imagesToSend=pendingImages.map(i=>({data:i.data,mime:i.mime,name:i.name}));
   let content=txt;
   if(!content){
@@ -911,13 +950,18 @@ async function doSend(content,files,images){
 تذكر دائماً:
 - أنت ${SITE_NAME} وليس ChatGPT أو Claude أو Gemini
 - لا تقل أبداً أنك تابع لـ OpenAI أو Google
-- أنت مساعد مستقل تم تطويره بواسطة Mahmoud Ahmed Saeed`;
+- أنت مساعد مستقل تم تطويره بواسطة Mahmoud Ahmed Saeed
+
+عند التعامل مع الملفات:
+- إذا رفع المستخدم ملفاً (خصوصاً ملف كود) وطلب تعديله أو إصلاحه أو إضافة شيء إليه، أرجع محتوى الملف كاملاً بعد التعديل داخل بلوك كود واحد فقط (\`\`\`) مع تحديد اسم اللغة، حتى يستطيع المستخدم تحميله كملف جديد مباشرة.
+- لا تقتصر على عرض جزء من الملف فقط؛ أعد الملف كاملاً مع التعديلات المطلوبة.
+- يمكنك شرح التعديلات قبل أو بعد بلوك الكود بإيجاز.`;
 
     const apiMsgs=[{role:'system',content:sysPrompt},...state.messages.map(m=>{
       if(m.role==='user'){
         const parts=[];
         if(m.content)parts.push({type:'text',text:m.content});
-        if(m.files)for(const f of m.files)parts.push({type:'text',text:`[الملف: ${f.name}]\n\n${f.content}`});
+        if(m.files)for(const f of m.files)parts.push({type:'text',text:f.isText?`[الملف: ${f.name}]\n\n${f.content}`:`[تم إرفاق ملف باسم ${f.name} (${f.type||'نوع غير معروف'}) لكنه ملف ثنائي ولا يمكن قراءة محتواه كنص]`});
         if(m.imageDescriptions)for(const d of m.imageDescriptions)parts.push({type:'text',text:`[وصف صورة مرفوعة من المستخدم]: ${d}`});
         return{role:'user',content:parts.length===1?parts[0].text:parts}
       }
@@ -925,7 +969,7 @@ async function doSend(content,files,images){
     })];
 
     state.streamingContent='';
-    const useCodeModel=isCodingRequest(content);
+    const useCodeModel=isCodingRequest(content)||hasCodeFile(files);
     const apiUrl=useCodeModel?'https://openrouter.ai/api/v1/chat/completions':'https://api.groq.com/openai/v1/chat/completions';
     const apiKey=useCodeModel?OPENROUTER_API_KEY:GROQ_API_KEY;
     const apiModel=useCodeModel?CODE_MODEL:GROQ_MODEL;
@@ -989,14 +1033,14 @@ uploadConfirm.addEventListener('click',async()=>{
   closeUpload();
   for(const f of uploadFiles){
     if(isImage(f)){const img=await fileToB64(f);pendingImages.push({name:f.name,data:img.data,mime:img.mime});}
-    else pendingFiles.push({name:f.name,type:f.type,size:f.size,content:await fileToContent(f)});
+    else pendingFiles.push({name:f.name,type:f.type,size:f.size,content:await fileToContent(f),isText:isTextFile(f)});
   }
   uploadFiles=[];
   renderAttachPreview();updateSendBtnState();chatInput.focus();
 });
 
 function fileToB64(file){return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res({data:r.result.split(',')[1],mime:file.type||'image/jpeg'});r.onerror=rej;r.readAsDataURL(file)})}
-function fileToContent(file){return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>{const result=r.result;if(typeof result==='string'&&result.startsWith('data:'))res(result.split(',')[1]||result);else res(result)};r.onerror=rej;if(file.type.includes('text')||file.type.includes('json')||file.type.includes('csv'))r.readAsText(file);else r.readAsDataURL(file)})}
+function fileToContent(file){return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>{const result=r.result;if(typeof result==='string'&&result.startsWith('data:'))res(result.split(',')[1]||result);else res(result)};r.onerror=rej;if(isTextFile(file))r.readAsText(file);else r.readAsDataURL(file)})}
 
 imageBtn.addEventListener('click',()=>hiddenImageInput.click());
 hiddenImageInput.addEventListener('change',async()=>{
