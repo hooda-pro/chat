@@ -736,7 +736,7 @@ function renderMsg(msg,i){
   let content=escHtml(msg.content);
   if(!isUser)content=renderMd(msg.content);
   let html=`<div class="msg-avatar ${isUser?'user':'ai'}">${isUser?'👤':'✦'}</div><div class="msg-content"><div class="msg-bubble">${content}</div>`;
-  if(msg.images&&msg.images.length>0){html+=`<div class="msg-imgs">`;msg.images.forEach(img=>{html+=`<img src="data:image/jpeg;base64,${img}" alt="صورة" loading="lazy">`});html+=`</div>`}
+  if(msg.images&&msg.images.length>0){html+=`<div class="msg-imgs">`;msg.images.forEach(img=>{html+=`<img src="data:${img.mime||'image/jpeg'};base64,${img.data}" alt="صورة" loading="lazy">`});html+=`</div>`}
   if(msg.files&&msg.files.length>0){html+=`<div class="msg-files">`;msg.files.forEach(f=>{html+=`<div class="msg-file"><span>📄</span><span class="name">${escHtml(f.name)}</span><span class="size">${fmtSize(f.size)}</span></div>`});html+=`</div>`}
   html+=`<div class="msg-actions"><span class="msg-time">${fmtTime(msg.timestamp)}</span>`;
   if(!isUser&&msg.id!=='welcome'){html+=`<button class="msg-action" data-copy="${i}">📋</button>`;if(i===state.messages.length-1)html+=`<button class="msg-action" data-retry="${i}">🔄</button>`}
@@ -790,7 +790,7 @@ async function analyzeImages(images){
           model:VISION_MODEL,
           messages:[{role:'user',content:[
             {type:'text',text:'صف هذه الصورة بالتفصيل باللغة العربية: العناصر الظاهرة، أي نصوص مكتوبة فيها، والسياق العام. اجعل الوصف دقيقاً ومفيداً.'},
-            {type:'image_url',image_url:{url:`data:image/jpeg;base64,${img}`}}
+            {type:'image_url',image_url:{url:`data:${img.mime||'image/jpeg'};base64,${img.data}`}}
           ]}],
           max_tokens:1000
         })
@@ -811,7 +811,7 @@ function renderAttachPreview(){
   attachPreview.innerHTML='';
   pendingImages.forEach((img,i)=>{
     const chip=document.createElement('div');chip.className='attach-chip';
-    chip.innerHTML=`<img src="data:image/jpeg;base64,${img.b64}" alt=""><span class="attach-name">${escHtml(img.name||'صورة')}</span><button class="attach-remove" data-type="img" data-idx="${i}">✕</button>`;
+    chip.innerHTML=`<img src="data:${img.mime};base64,${img.data}" alt=""><span class="attach-name">${escHtml(img.name||'صورة')}</span><button class="attach-remove" data-type="img" data-idx="${i}">✕</button>`;
     attachPreview.appendChild(chip);
   });
   pendingFiles.forEach((f,i)=>{
@@ -854,7 +854,7 @@ async function sendMessage(){
   if(!txt&&!pendingFiles.length&&!pendingImages.length)return;
   if(state.isLoading)return;
   const filesToSend=pendingFiles.map(f=>({name:f.name,type:f.type,size:f.size,content:f.content}));
-  const imagesToSend=pendingImages.map(i=>i.b64);
+  const imagesToSend=pendingImages.map(i=>({data:i.data,mime:i.mime,name:i.name}));
   let content=txt;
   if(!content){
     const parts=[];
@@ -965,20 +965,20 @@ uploadConfirm.addEventListener('click',async()=>{
   if(!uploadFiles.length)return;
   closeUpload();
   for(const f of uploadFiles){
-    if(isImage(f))pendingImages.push({name:f.name,b64:await fileToB64(f)});
+    if(isImage(f)){const img=await fileToB64(f);pendingImages.push({name:f.name,data:img.data,mime:img.mime});}
     else pendingFiles.push({name:f.name,type:f.type,size:f.size,content:await fileToContent(f)});
   }
   uploadFiles=[];
   renderAttachPreview();updateSendBtnState();chatInput.focus();
 });
 
-function fileToB64(file){return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result.split(',')[1]);r.onerror=rej;r.readAsDataURL(file)})}
+function fileToB64(file){return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res({data:r.result.split(',')[1],mime:file.type||'image/jpeg'});r.onerror=rej;r.readAsDataURL(file)})}
 function fileToContent(file){return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>{const result=r.result;if(typeof result==='string'&&result.startsWith('data:'))res(result.split(',')[1]||result);else res(result)};r.onerror=rej;if(file.type.includes('text')||file.type.includes('json')||file.type.includes('csv'))r.readAsText(file);else r.readAsDataURL(file)})}
 
 imageBtn.addEventListener('click',()=>hiddenImageInput.click());
 hiddenImageInput.addEventListener('change',async()=>{
   if(!hiddenImageInput.files.length)return;
-  for(const f of hiddenImageInput.files)pendingImages.push({name:f.name,b64:await fileToB64(f)});
+  for(const f of hiddenImageInput.files){const img=await fileToB64(f);pendingImages.push({name:f.name,data:img.data,mime:img.mime});}
   hiddenImageInput.value='';
   renderAttachPreview();updateSendBtnState();chatInput.focus();
 });
