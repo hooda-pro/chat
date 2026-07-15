@@ -404,13 +404,13 @@ header{display:flex;align-items:center;justify-content:space-between;padding:0 1
 const GROQ_API_KEY='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';
 const SITE_NAME='NovaMind AI';
 const MAX_FILE_SIZE=200*1024*1024;
-const MAX_LINES_PER_FILE=200;
+const MAX_LINES_PER_FILE=500;
 // نماذج متعددة - auto switch حسب المهمة
 const MODELS={
-  code:'llama-3.3-70b-versatile',     // الأفضل للبرمجة (70B, 131K context)
-  vision:'meta-llama/llama-4-scout-17b-16e-instruct', // للصور (17B, supports images)
-  fast:'llama-3.1-8b-instant',        // سريع للأسئلة البسيطة (8B)
-  reasoning:'openai/gpt-oss-120b',    // للاستدلال المنطقي العميق (120B)
+  code:'meta-llama/llama-4-scout-17b-16e-instruct',  // للبرمجة (30K TPM, 131K context)
+  vision:'meta-llama/llama-4-scout-17b-16e-instruct', // للصور (30K TPM)
+  fast:'llama-3.1-8b-instant',       // سريع للأسئلة البسيطة (6K TPM)
+  code2:'llama-3.3-70b-versatile',   // بديل للبرمجة (12K TPM)
 };
 let currentModel=MODELS.code;
 
@@ -429,6 +429,34 @@ function genId(){return Date.now().toString(36)+Math.random().toString(36).subst
 function fmtTime(ts){const d=new Date(ts),n=new Date();const dy=Math.floor((n-d)/86400000);if(dy===0)return d.toLocaleTimeString('ar-SA',{hour:'2-digit',minute:'2-digit'});if(dy===1)return'أمس';if(dy<7)return d.toLocaleDateString('ar-SA',{weekday:'long'});return d.toLocaleDateString('ar-SA',{month:'short',day:'numeric'})}
 function trunc(t,n){return t.length<=n?t:t.substring(0,n)+'...'}
 function fmtSize(b){if(!b)return'0 B';const k=1024,s=['B','KB','MB','GB'];const i=Math.floor(Math.log(b)/Math.log(k));return parseFloat((b/Math.pow(k,i)).toFixed(1))+' '+s[i]}
+function extractFilesFromResponse(text){
+  const files=[];
+  // نمط 1: ```python\n# filename: myfile.py\n...code...```
+  const blockRegex1=/```(\w+)\n(?:#\s*filename:\s*([^\n]+)\n[\s\S]*?```)/g;
+  let match;
+  while((match=blockRegex1.exec(text))!==null){
+    const lang=match[1];
+    let fname=match[2]?.trim();
+    // نأخذ الكود كامل
+    const startIdx=match.index;
+    const blockEnd=text.indexOf('```',startIdx+3);
+    if(blockEnd===-1)continue;
+    const fullBlock=text.substring(startIdx,blockEnd+3);
+    const firstNewline=fullBlock.indexOf('\n');
+    const lastBacktick=fullBlock.lastIndexOf('```');
+    const code=fullBlock.substring(firstNewline+1,lastBacktick).trim();
+    if(!code||code.length<10)continue;
+    // لو مافيش filename نستخدم اسم افتراضي
+    if(!fname){
+      const extMap={python:'code.py',javascript:'code.js',typescript:'code.ts',html:'code.html',css:'code.css',cpp:'code.cpp',java:'code.java',go:'code.go',rust:'code.rs',ruby:'code.rb',php:'code.php',swift:'code.swift',kotlin:'code.kt',dart:'code.dart',sql:'code.sql',bash:'code.sh',shell:'code.sh',yaml:'code.yml',json:'code.json',xml:'code.xml',markdown:'readme.md',text:'code.txt',plain:'code.txt','':''};
+      fname=extMap[lang]||('code.'+lang);
+    }
+    if(fname&&!files.some(x=>x.name===fname)){
+      files.push({name:fname,type:'text/plain',size:new Blob([code]).size,content:code});
+    }
+  }
+  return files;
+}
 function esc(t){const d=document.createElement('div');d.textContent=t;return d.innerHTML}
 function save(){try{localStorage.setItem('nm-state',JSON.stringify({conversations:state.conversations,currentId:state.currentId,theme:state.theme,userName:state.userName}))}catch(e){}}
 function load(){try{const d=JSON.parse(localStorage.getItem('nm-state'));if(d){state.conversations=d.conversations||[];state.currentId=d.currentId||null;state.theme=d.theme||'dark';state.userName=d.userName||''}}catch(e){}}
@@ -713,30 +741,28 @@ async function doSend(content,files,images){
     }
     setStatus(`🔄 ${currentModel.split('/').pop()||currentModel}`,'busy');
 
-    const sysPrompt=`أنت ${SITE_NAME}، مساعد برمجة متطور. اسمك ${SITE_NAME}.
+    const sysPrompt=`أنت ${SITE_NAME}، مساعد برمجة متطور. اسمك ${SITE_NAME} أنت خبير بجميع لغات البرمجة.
 
-مهمتك: قراءة وتحليل وتعديل وتحسين الكود المصدري. أنت خبير في جميع لغات البرمجة.
+قاعدة أساسية - عندما يطلب منك تعديل ملف:
+1. اقرأ الكود بالكامل وافهمه جيداً
+2. نفذ التعديلات المطلوبة بالضبط
+3. أخرج الملف المعدل كاملاً في CODE BLOCK واحد (وليس أجزاء)
+4. اشرح التغييرات باختصار
 
-شخصيتك:
-- خبير برمجة محترف
-- تحلل الكود بدقة وتفهم السياق كاملاً
-- تعدل الكود حسب طلب المستخدم
-- ترجع الملفات المعدلة كاملة
-- تستخدم Markdown في الردود
-- تكتب كود نظيف ومنظم
+مهم جداً:
+- أكتب الملف كاملاً، مش بس الأجزاء اللي غيرتها
+- استخدم code block مع اسم الملف: \`\`\`python
+# filename: myfile.py
+\`\`\`
+- لو في أكثر من ملف، أخرج كل ملف في code block منفصل
 
-عندما يطلب منك تعديل ملف:
-1. اقرأ الكود بالكامل
-2. حلّل هيكله ووظائفه
-3. نفذ التعديلات المطلوبة
-4. أعد الملف كاملاً مع التغييرات
-5. اشرح التغييرات التي قمت بها
+للتعامل مع الملفات الكبيرة جداً:
+- ركز على الجزء اللي المستخدم طلب تعديله
+- اقرأ السياق حول الجزء المطلوب
+- نفذ التعديل بدقة
+- أخرج الملف كاملاً
 
-للتعامل مع الملفات الكبيرة:
-- حلّل الكود بشكل تدريجي
-- ركز على الأجزاء المطلوب تعديلها
-- حافظ على باقي الكود كما هو
-
+تذكر: أنت مساعد برمجة، ردك الأساسي هو كتابة كود - مش شرح طويل.
 المستخدم: ${state.userName}
 المطور: Mahmoud Ahmed Saeed`;
 
@@ -879,8 +905,25 @@ async function doSend(content,files,images){
     const elapsed=((Date.now()-startTime)/1000).toFixed(1);
     addLog(`⏱ استغرق ${elapsed} ثانية`,'success');
 
-    // Try to extract files from response
-    const aiMsg={id:genId(),role:'assistant',content:full,timestamp:Date.now()};
+    // ===== استخراج الملفات من رد AI =====
+    const extractedFiles=extractFilesFromResponse(full);
+    if(extractedFiles.length>0){
+      addLog(`📦 تم استخراج ${extractedFiles.length} ملف من الرد`,'success');
+      // نضيف الملفات المستخرجة لآخر رسالة مساعد
+      const lastMsg=state.messages[state.messages.length-1];
+      if(lastMsg&&lastMsg.role==='assistant'){
+        if(!lastMsg.files)lastMsg.files=[];
+        for(const ef of extractedFiles){
+          // نتجنب التكرار
+          if(!lastMsg.files.some(x=>x.name===ef.name)){
+            lastMsg.files.push(ef);
+            addLog(`📄 ${ef.name} (${fmtSize(ef.size)})`,'success');
+          }
+        }
+      }
+    }
+
+    const aiMsg={id:genId(),role:'assistant',content:full,timestamp:Date.now(),files:extractedFiles.length?extractedFiles:undefined};
     state.messages.push(aiMsg);updateConv();state.streamingContent='';renderMsgs();save();
     addLog('📦 تم تحديث المحادثة','success');
     setStatus('جاهز','');
