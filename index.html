@@ -402,9 +402,10 @@ header{display:flex;align-items:center;justify-content:space-between;padding:0 1
 
 <script>
 const GROQ_API_KEY='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';
-const GROQ_MODEL='openai/gpt-oss-120b';
+const GROQ_MODEL='llama-3.2-90b-vision-preview';
 const SITE_NAME='NovaMind AI';
 const MAX_FILE_SIZE=200*1024*1024;
+const MAX_LINES_PER_FILE=2000; // أقصى عدد أسطر نرسلها للـ AI
 
 // ===== STATE =====
 let state={
@@ -711,23 +712,75 @@ async function doSend(content,files,images){
 المستخدم: ${state.userName}
 المطور: Mahmoud Ahmed Saeed`;
 
+    // تجهيز الملفات للـ API (اقتطاع الملفات الكبيرة)
+    function prepFileContent(f){
+      const lines=f.content.split('\n');
+      if(lines.length>MAX_LINES_PER_FILE){
+        addLog(`⚠️ ملف ${f.name} كبير (${lines.length.toLocaleString()} سطر)، سيتم إرسال أول ${MAX_LINES_PER_FILE.toLocaleString()} سطر`,'warn');
+        return lines.slice(0,MAX_LINES_PER_FILE).join('\n')+`\n\n... [تم اقتطاع ${(lines.length-MAX_LINES_PER_FILE).toLocaleString()} سطر. أخبرني إذا احتجت باقي الملف]`;
+      }
+      return f.content;
+    }
+
+    // بناء رسائل API
+    const isVision=GROQ_MODEL.includes('vision');
     const apiMsgs=[{role:'system',content:sysPrompt}];
     for(const m of state.messages){
       if(m.role==='user'){
-        const parts=[];
-        if(m.content)parts.push({type:'text',text:m.content});
-        if(m.files)for(const f of m.files)parts.push({type:'text',text:`--- ملف: ${f.name} ---\n\`\`\`\n${f.content}\n\`\`\``});
-        if(m.images)for(const img of m.images)parts.push({type:'image_url',image_url:{url:`data:image/jpeg;base64,${img}`,detail:'high'}});
-        apiMsgs.push({role:'user',content:parts.length===1?parts[0].text:parts});
+        let msgText=m.content||'';
+        if(m.files&&m.files.length>0){
+          msgText+='\n\n'+(await Promise.all(m.files.map(async(f,i)=>{
+            const content=prepFileContent(f);
+            return `--- الملف ${i+1}: ${f.name} (${fmtSize(f.size)}) ---\n\`\`\`\n${content}\n\`\`\``;
+          }))).join('\n\n');
+        }
+        // إذا في صور والنموذج Vision
+        if(m.images&&m.images.length>0&&isVision){
+          const parts=[{type:'text',text:msgText}];
+          for(const img of m.images)parts.push({type:'image_url',image_url:{url:`data:image/jpeg;base64,${img}`,detail:'high'}});
+          apiMsgs.push({role:'user',content:parts});
+          addLog(`🖼 تم تضمين ${m.images.length} صورة من السياق`,'info');
+        }else{
+          apiMsgs.push({role:'user',content:msgText});
+        }
       }else apiMsgs.push({role:'assistant',content:m.content});
     }
 
-    // Merge extra files into last user message
+    // دمج الملفات/الصور الجديدة مع آخر رسالة مستخدم
     const lu=apiMsgs.slice().reverse().find(m=>m.role==='user');
     if(lu&&(files.length||images.length)){
-      if(typeof lu.content==='string')lu.content=[{type:'text',text:lu.content}];
-      for(const f of files)lu.content.push({type:'text',text:`--- ملف: ${f.name} ---\n\`\`\`\n${f.content}\n\`\`\``});
-      for(const img of images)lu.content.push({type:'image_url',image_url:{url:`data:image/jpeg;base64,${img}`,detail:'high'}});
+      let txt=typeof lu.content==='string'?lu.content:'';
+      if(Array.isArray(lu.content)){
+        // لو المحتوى مصفوفة (فيه صور)، ناخد النص
+        const first=lu.content.find(p=>p.type==='text');
+        txt=first?.text||'';
+      }
+      if(files.length){
+        txt+='\n\n'+(await Promise.all(files.map(async(f,i)=>{
+          const content=prepFileContent(f);
+          return `--- الملف ${i+1}: ${f.name} (${fmtSize(f.size)}) ---\n\`\`\`\n${content}\n\`\`\``;
+        }))).join('\n\n');
+      }
+      if(images.length&&isVision){
+        const parts=[{type:'text',text:txt}];
+        for(const img of images)parts.push({type:'image_url',image_url:{url:`data:image/jpeg;base64,${img}`,detail:'high'}});
+        // Also add existing images from lu if it was already a parts array
+        if(Array.isArray(lu.content)){
+          for(const p of lu.content){
+            if(p.type==='image_url'&&!parts.some(x=>x.image_url?.url===p.image_url?.url)){
+              parts.push(p);
+            }
+          }
+        }
+        lu.content=parts;
+        addLog(`🖼 تم رفع ${images.length} صورة للتحليل`,'info');
+      }else if(images.length&&!isVision){
+        txt+='\n\n[تم رفع صور لكن النموذج لا يدعم تحليل الصور]';
+        lu.content=txt;
+        addLog(`⚠️ النموذج الحالي لا يدعم الصور`,'warn');
+      }else{
+        lu.content=txt;
+      }
     }
 
     addLog('🤖 إرسال إلى الذكاء الاصطناعي...','info');
@@ -739,7 +792,7 @@ async function doSend(content,files,images){
       headers:{'Content-Type':'application/json','Authorization':`Bearer ${GROQ_API_KEY}`},
       body:JSON.stringify({model:GROQ_MODEL,messages:apiMsgs,temperature:0.7,max_tokens:8192,top_p:1,stream:true})
     });
-    if(!res.ok){const err=await res.text();throw new Error(`خطأ ${res.status}`)}
+    if(!res.ok){const errText=await res.text();addLog(`❌ رد API: ${errText}`,'error');throw new Error(`API Error ${res.status}: ${errText.substring(0,200)}`)}
 
     const reader=res.body.getReader();const decoder=new TextDecoder();let full='';
     while(true){
@@ -856,7 +909,24 @@ $('uploadConfirm').addEventListener('click',async()=>{
 });
 
 function fileB64(f){return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result.split(',')[1]);r.onerror=rej;r.readAsDataURL(f)})}
-function fileContent(f){return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>{const result=r.result;if(typeof result==='string'&&result.startsWith('data:'))res(result.split(',')[1]||result);else res(result)};r.onerror=rej;r.readAsText(f)})}
+function isTextFile(f){
+  const textExts=['py','js','ts','jsx','tsx','html','css','scss','less','json','xml','yaml','yml','md','txt','csv','sql','sh','bat','ps1','cpp','c','h','hpp','java','go','rs','rb','php','swift','kt','dart','lua','r','scala','pl','hs','ex','exs','clj','groovy','tf','gradle','ini','cfg','conf','log','env','gitignore','dockerfile','makefile','cmake','vue','svelte','astro','mjs','cjs','mts','cts'];
+  const ext=f.name.split('.').pop()?.toLowerCase();
+  return textExts.includes(ext)||f.type.startsWith('text/')||f.type.includes('json')||f.type.includes('javascript')||f.type.includes('xml')||!ext;
+}
+function fileContent(f){
+  return new Promise((res,rej)=>{
+    if(!isTextFile(f)){
+      addLog(`⚠️ ${f.name} ملف ثنائي، سيتم إرسال اسمه فقط`,'warn');
+      res(`[ملف ثنائي: ${f.name} - ${fmtSize(f.size)} - لا يمكن قراءة المحتوى]`);
+      return;
+    }
+    const r=new FileReader();
+    r.onload=()=>{const result=r.result;if(typeof result==='string'&&result.startsWith('data:'))res(result.split(',')[1]||result);else res(result)};
+    r.onerror=()=>res('');
+    r.readAsText(f)
+  })
+}
 
 // Hidden file input (for image button)
 $('imageBtn').addEventListener('click',()=>$('hiddenFileInput').click());
