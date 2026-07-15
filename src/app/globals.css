@@ -1,0 +1,196 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700&display=swap');
+
+@layer base {
+  :root {
+    --background: 15 23 42;
+    --foreground: 248 250 252;
+    --muted: 100 116 139;
+    --accent: 99 102 241;
+    --border: 51 65 85;
+    --card: 30 41 59;
+    --card-hover: 51 65 85;
+  }
+
+  .light {
+    --background: 248 250 252;
+    --foreground: 15 23 42;
+    --muted: 100 116 139;
+    --accent: 79 70 229;
+    --border: 226 232 240;
+    --card: 255 255 255;
+    --card-hover: 241 245 249;
+  }
+
+  * {
+    @apply border-surface-700/50;
+  }
+
+  body {
+    @apply bg-surface-950 text-surface-50 font-sans antialiased;
+    font-family: 'Cairo', system-ui, sans-serif;
+    direction: rtl;
+  }
+
+  .light body,
+  body.light {
+    @apply bg-surface-50 text-surface-900;
+  }
+
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  ::-webkit-scrollbar-track {
+    @apply bg-transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    @apply bg-surface-700/50 rounded-full hover:bg-surface-600/50;
+  }
+
+  .light ::-webkit-scrollbar-thumb {
+    @apply bg-surface-300/50 hover:bg-surface-400/50;
+  }
+}
+
+@layer components {
+  .glass {
+    @apply bg-surface-900/60 backdrop-blur-xl border border-surface-700/30;
+  }
+
+  .light .glass {
+    @apply bg-white/60 backdrop-blur-xl border border-surface-200/50;
+  }
+
+  .glow {
+    box-shadow: 0 0 20px rgba(99, 102, 241, 0.15),
+                0 0 40px rgba(99, 102, 241, 0.05);
+  }
+
+  .message-enter {
+    animation: messageSlideIn 0.3s ease-out;
+  }
+
+  @keyframes messageSlideIn {
+    from {
+      opacity: 0;
+      transform: translateY(10px) scale(0.98);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+  }
+
+  .typing-dot {
+    @apply w-2 h-2 bg-primary-500 rounded-full;
+    animation: typingBounce 1.4s ease-in-out infinite;
+  }
+
+  .typing-dot:nth-child(1) { animation-delay: 0s; }
+  .typing-dot:nth-child(2) { animation-delay: 0.2s; }
+  .typing-dot:nth-child(3) { animation-delay: 0.4s; }
+
+  @keyframes typingBounce {
+    0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+    30% { transform: translateY(-8px); opacity: 1; }
+  }
+
+  .gradient-text {
+    @apply bg-clip-text text-transparent bg-gradient-to-r from-primary-400 via-purple-400 to-pink-400;
+  }
+}
+
+/* Markdown Styles */
+.prose {
+  @apply max-w-none;
+}
+
+.prose p {
+  @apply mb-3 leading-relaxed;
+}
+
+.prose ul, .prose ol {
+  @apply mb-3 pr-5;
+}
+
+.prose li {
+  @apply mb-1;
+}
+
+.prose h1, .prose h2, .prose h3, .prose h4 {
+  @apply font-bold mb-3 mt-5;
+}
+
+.prose h1 { @apply text-2xl; }
+.prose h2 { @apply text-xl; }
+.prose h3 { @apply text-lg; }
+
+.prose blockquote {
+  @apply border-r-4 border-primary-500 pr-4 mr-0 italic text-surface-400;
+}
+
+.prose table {
+  @apply w-full border-collapse mb-4;
+}
+
+.prose th, .prose td {
+  @apply border border-surface-700 px-3 py-2 text-right;
+}
+
+.prose th {
+  @apply bg-surface-800 font-semibold;
+}
+
+.prose a {
+  @apply text-primary-400 hover:text-primary-300 underline;
+}
+
+.prose code {
+  @apply bg-surface-800 px-1.5 py-0.5 rounded text-sm font-mono;
+}
+
+.prose pre {
+  @apply bg-surface-900 rounded-lg p-4 overflow-x-auto mb-4 border border-surface-700/50;
+}
+
+.prose pre code {
+  @apply bg-transparent p-0;
+}
+
+.prose img {
+  @apply rounded-lg max-w-full my-4;
+}
+
+.prose hr {
+  @apply border-surface-700 my-6;
+}
+
+.light .prose blockquote {
+  @apply text-surface-500;
+}
+
+.light .prose th, .light .prose td {
+  @apply border-surface-300;
+}
+
+.light .prose th {
+  @apply bg-surface-100;
+}
+
+.light .prose code {
+  @apply bg-surface-200 text-surface-800;
+}
+
+.light .prose pre {
+  @apply bg-surface-100 border-surface-300;
+}
+
+.light .prose hr {
+  @apply border-surface-300;
+}
