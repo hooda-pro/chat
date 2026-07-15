@@ -402,17 +402,9 @@ header{display:flex;align-items:center;justify-content:space-between;padding:0 1
 
 <script>
 const GROQ_API_KEY='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';
+const GROQ_MODEL='openai/gpt-oss-120b';
 const SITE_NAME='NovaMind AI';
 const MAX_FILE_SIZE=200*1024*1024;
-const MAX_LINES_PER_FILE=500;
-// نماذج متعددة - auto switch حسب المهمة
-const MODELS={
-  code:'meta-llama/llama-4-scout-17b-16e-instruct',  // للبرمجة (30K TPM, 131K context)
-  vision:'meta-llama/llama-4-scout-17b-16e-instruct', // للصور (30K TPM)
-  fast:'llama-3.1-8b-instant',       // سريع للأسئلة البسيطة (6K TPM)
-  code2:'llama-3.3-70b-versatile',   // بديل للبرمجة (12K TPM)
-};
-let currentModel=MODELS.code;
 
 // ===== STATE =====
 let state={
@@ -429,30 +421,6 @@ function genId(){return Date.now().toString(36)+Math.random().toString(36).subst
 function fmtTime(ts){const d=new Date(ts),n=new Date();const dy=Math.floor((n-d)/86400000);if(dy===0)return d.toLocaleTimeString('ar-SA',{hour:'2-digit',minute:'2-digit'});if(dy===1)return'أمس';if(dy<7)return d.toLocaleDateString('ar-SA',{weekday:'long'});return d.toLocaleDateString('ar-SA',{month:'short',day:'numeric'})}
 function trunc(t,n){return t.length<=n?t:t.substring(0,n)+'...'}
 function fmtSize(b){if(!b)return'0 B';const k=1024,s=['B','KB','MB','GB'];const i=Math.floor(Math.log(b)/Math.log(k));return parseFloat((b/Math.pow(k,i)).toFixed(1))+' '+s[i]}
-function extractFilesFromResponse(text){
-  const files=[];
-  // نمط 1: ```lang\n# filename: myfile.py\n...code```
-  const blockRegex1=/```(\w+)\n(?:#\s*filename:\s*([^\n]+)\n)([\s\S]*?)```/g;
-  let match;
-  while((match=blockRegex1.exec(text))!==null){
-    const lang=match[1],fname=match[2]?.trim(),code=match[3].trim();
-    if(!code||code.length<10)continue;
-    const name=fname||extMap[lang]||('code.'+lang);
-    if(name&&!files.some(x=>x.name===name))
-      files.push({name,type:'text/plain',size:new Blob([code]).size,content:code});
-  }
-  // نمط 2: ```lang\n...code``` بدون filename
-  const blockRegex2=/```(\w+)\n(?!\s*#\s*filename:)([\s\S]*?)```/g;
-  while((match=blockRegex2.exec(text))!==null){
-    const lang=match[1],code=match[2].trim();
-    if(!code||code.length<10)continue;
-    const name=extMap[lang]||('code.'+lang);
-    if(name&&!files.some(x=>x.name===name))
-      files.push({name,type:'text/plain',size:new Blob([code]).size,content:code});
-  }
-  return files;
-}
-const extMap={python:'code.py',javascript:'code.js',typescript:'code.ts',html:'code.html',css:'code.css',cpp:'code.cpp',java:'code.java',go:'code.go',rust:'code.rs',ruby:'code.rb',php:'code.php',swift:'code.swift',kotlin:'code.kt',dart:'code.dart',sql:'code.sql',bash:'code.sh',shell:'code.sh',yaml:'code.yml',json:'code.json',xml:'code.xml',markdown:'readme.md',text:'code.txt',plain:'code.txt','':''};
 function esc(t){const d=document.createElement('div');d.textContent=t;return d.innerHTML}
 function save(){try{localStorage.setItem('nm-state',JSON.stringify({conversations:state.conversations,currentId:state.currentId,theme:state.theme,userName:state.userName}))}catch(e){}}
 function load(){try{const d=JSON.parse(localStorage.getItem('nm-state'));if(d){state.conversations=d.conversations||[];state.currentId=d.currentId||null;state.theme=d.theme||'dark';state.userName=d.userName||''}}catch(e){}}
@@ -716,174 +684,62 @@ async function doSend(content,files,images){
   }
 
   try{
-    // ===== تحديد النموذج تلقائياً حسب المهمة =====
-    const hasImages=images.length>0||state.messages.some(m=>m.images?.length);
-    const hasLargeFile=files.some(f=>f.content.split('\n').length>300)||state.messages.some(m=>m.files?.some(f=>f.content.split('\n').length>300));
-    const codeExts=['py','js','ts','jsx','tsx','html','css','cpp','c','java','go','rs','rb','php','swift','kt','dart'];
-    const hasCodeFiles=files.some(f=>{const e=f.name.split('.').pop()?.toLowerCase();return codeExts.includes(e)})||
-      state.messages.some(m=>m.files?.some(f=>{const e=f.name.split('.').pop()?.toLowerCase();return codeExts.includes(e)}));
+    const sysPrompt=`أنت ${SITE_NAME}، مساعد برمجة متطور. اسمك ${SITE_NAME}.
 
-    if(hasImages){
-      currentModel=MODELS.vision;
-      addLog(`🖼 تم اكتشاف صور → استخدام ${currentModel}`,'info');
-    }else if(hasCodeFiles||hasLargeFile){
-      currentModel=MODELS.code;
-      addLog(`💻 ملفات برمجية → استخدام ${currentModel}`,'info');
-    }else{
-      // استخدام النموذج المناسب حسب طول المحادثة
-      const totalChars=state.messages.reduce((s,m)=>s+m.content.length,0)+content.length;
-      currentModel=totalChars>5000?MODELS.code:MODELS.fast;
-      addLog(`🤖 استخدام ${currentModel}`,'info');
-    }
-    setStatus(`🔄 ${currentModel.split('/').pop()||currentModel}`,'busy');
+مهمتك: قراءة وتحليل وتعديل وتحسين الكود المصدري. أنت خبير في جميع لغات البرمجة.
 
-    const sysPrompt=`أنت ${SITE_NAME}، مساعد برمجة متطور. اسمك ${SITE_NAME} أنت خبير بجميع لغات البرمجة.
+شخصيتك:
+- خبير برمجة محترف
+- تحلل الكود بدقة وتفهم السياق كاملاً
+- تعدل الكود حسب طلب المستخدم
+- ترجع الملفات المعدلة كاملة
+- تستخدم Markdown في الردود
+- تكتب كود نظيف ومنظم
 
-قاعدة أساسية - عندما يطلب منك تعديل ملف:
-1. اقرأ الكود بالكامل وافهمه جيداً
-2. نفذ التعديلات المطلوبة بالضبط
-3. أخرج الملف المعدل كاملاً في CODE BLOCK واحد (وليس أجزاء)
-4. اشرح التغييرات باختصار
+عندما يطلب منك تعديل ملف:
+1. اقرأ الكود بالكامل
+2. حلّل هيكله ووظائفه
+3. نفذ التعديلات المطلوبة
+4. أعد الملف كاملاً مع التغييرات
+5. اشرح التغييرات التي قمت بها
 
-مهم جداً:
-- أكتب الملف كاملاً، مش بس الأجزاء اللي غيرتها
-- استخدم code block مع اسم الملف: \`\`\`python
-# filename: myfile.py
-\`\`\`
-- لو في أكثر من ملف، أخرج كل ملف في code block منفصل
+للتعامل مع الملفات الكبيرة:
+- حلّل الكود بشكل تدريجي
+- ركز على الأجزاء المطلوب تعديلها
+- حافظ على باقي الكود كما هو
 
-للتعامل مع الملفات الكبيرة جداً:
-- ركز على الجزء اللي المستخدم طلب تعديله
-- اقرأ السياق حول الجزء المطلوب
-- نفذ التعديل بدقة
-- أخرج الملف كاملاً
-
-تذكر: أنت مساعد برمجة، ردك الأساسي هو كتابة كود - مش شرح طويل.
 المستخدم: ${state.userName}
 المطور: Mahmoud Ahmed Saeed`;
 
-    // ===== تصغير حجم الطلب =====
-    // استخراج هيكل الملف (الدوال والكلاسات) للملفات الكبيرة جداً
-    function extractSkeleton(code){
-      const lines=code.split('\n');
-      const skeleton=[];
-      let inMultiline=false;
-      for(let i=0;i<Math.min(lines.length,5000);i++){
-        const line=lines[i];
-        const t=line.trim();
-        if(t.startsWith('"""')||t.startsWith("'''")){inMultiline=!inMultiline;continue}
-        if(inMultiline)continue;
-        // السطور المهمة
-        if(
-          t.startsWith('def ')||t.startsWith('class ')||
-          t.startsWith('import ')||t.startsWith('from ')||
-          t.startsWith('@')||
-          t.startsWith('async def ')||
-          t.startsWith('if __name__')||
-          t.startsWith('#')||
-          /^(public|private|protected|static|final|function|const|let|var|interface|type|enum|struct|trait|impl|fn|pub|use|mod)\s/.test(t)||
-          /^\w+\s*[=:]\s*(lambda|def|class|function)\s/.test(t)
-        ){
-          skeleton.push({line:i+1,text:t.substring(0,120)});
-        }
-      }
-      return skeleton;
-    }
-    function prepFileContent(f){
-      const lines=f.content.split('\n');
-      if(lines.length<=500)return f.content;
-      // للملفات الكبيرة: نرسل أول 500 سطر + هيكل الملف
-      addLog(`🔍 ${f.name}: ${lines.length.toLocaleString()} سطر، استخراج الهيكل...`,'warn');
-      const head=lines.slice(0,500).join('\n');
-      const skeleton=extractSkeleton(f.content);
-      let skelText='';
-      if(skeleton.length>0&&skeleton.length<500){
-        skelText='\n\n--- هيكل الملف (skeleton) ---\n';
-        for(const s of skeleton)skelText+=`${s.line}: ${s.text}\n`;
-      }
-      const totalHidden=lines.length-500;
-      return head+skelText+`\n\n... [${totalHidden.toLocaleString()} سطر مخفية. أخبرني أي جزء تريد رؤيته]`;
-    }
-    // نحتفظ بآخر رسالتين فقط + أول رسالة ترحيب
-    let msgsForApi=state.messages.filter(m=>m.role==='user'||m.role==='assistant');
-    if(msgsForApi.length>3){
-      msgsForApi=msgsForApi.slice(-3);
-      addLog(`📏 تقليص السياق إلى آخر 3 رسائل`,'warn');
-    }
-
-    const isVision=currentModel===MODELS.vision;
     const apiMsgs=[{role:'system',content:sysPrompt}];
-    for(const m of msgsForApi){
+    for(const m of state.messages){
       if(m.role==='user'){
-        let msgText=m.content||'';
-        // مهم: لا نرسل محتوى الملفات من التاريخ، فقط الأسماء
-        if(m.files&&m.files.length>0){
-          const names=m.files.map(f=>f.name).join('، ');
-          msgText+=`\n\n[الملفات المرفوعة سابقاً: ${names}]`;
-        }
-        apiMsgs.push({role:'user',content:msgText});
+        const parts=[];
+        if(m.content)parts.push({type:'text',text:m.content});
+        if(m.files)for(const f of m.files)parts.push({type:'text',text:`--- ملف: ${f.name} ---\n\`\`\`\n${f.content}\n\`\`\``});
+        if(m.images)for(const img of m.images)parts.push({type:'image_url',image_url:{url:`data:image/jpeg;base64,${img}`,detail:'high'}});
+        apiMsgs.push({role:'user',content:parts.length===1?parts[0].text:parts});
       }else apiMsgs.push({role:'assistant',content:m.content});
     }
 
-    // الملفات الجديدة فقط هي اللي تتبعت مع آخر رسالة
-    if(files.length||images.length){
-      let lastUser=apiMsgs.slice().reverse().find(m=>m.role==='user');
-      if(!lastUser){
-        apiMsgs.push({role:'user',content:''});
-        lastUser=apiMsgs[apiMsgs.length-1];
-      }
-      let txt=typeof lastUser.content==='string'?lastUser.content:'';
-      if(files.length){
-        const parts=await Promise.all(files.map(async f=>{
-          const c=prepFileContent(f);
-          return `--- ${f.name} (${fmtSize(f.size)}) ---\n\`\`\`\n${c}\n\`\`\``;
-        }));
-        txt+='\n\n'+parts.join('\n\n');
-      }
-      if(images.length&&isVision){
-        const ct=[{type:'text',text:txt}];
-        for(const img of images.slice(0,3))ct.push({type:'image_url',image_url:{url:`data:image/jpeg;base64,${img}`,detail:'auto'}});
-        lastUser.content=ct;
-        addLog(`🖼 ${Math.min(images.length,3)} صورة للتحليل`,'info');
-      }else if(images.length&&!isVision){
-        txt+='\n\n[⚠️ النموذج لا يدعم تحليل الصور]';
-        lastUser.content=txt;
-        addLog(`⚠️ النموذج لا يدعم الصور`,'warn');
-      }else lastUser.content=txt;
+    // Merge extra files into last user message
+    const lu=apiMsgs.slice().reverse().find(m=>m.role==='user');
+    if(lu&&(files.length||images.length)){
+      if(typeof lu.content==='string')lu.content=[{type:'text',text:lu.content}];
+      for(const f of files)lu.content.push({type:'text',text:`--- ملف: ${f.name} ---\n\`\`\`\n${f.content}\n\`\`\``});
+      for(const img of images)lu.content.push({type:'image_url',image_url:{url:`data:image/jpeg;base64,${img}`,detail:'high'}});
     }
 
     addLog('🤖 إرسال إلى الذكاء الاصطناعي...','info');
     state.streamingContent='';
     const startTime=Date.now();
 
-    // ===== إرسال مع إعادة محاولة تلقائية =====
-    let retries=0;const maxRetries=2;let res;
-    while(retries<=maxRetries){
-      try{
-        res=await fetch('https://api.groq.com/openai/v1/chat/completions',{
-          method:'POST',
-          headers:{'Content-Type':'application/json','Authorization':`Bearer ${GROQ_API_KEY}`},
-          body:JSON.stringify({model:currentModel,messages:apiMsgs,temperature:0.7,max_tokens:8192,top_p:1,stream:true})
-        });
-        if(res.ok)break;
-        const errText=await res.text();
-        if((res.status===429||res.status===413)&&retries<maxRetries){
-          retries++;
-          const wait=retries*3000;
-          addLog(`⏳ تجاوز حد الطلبات، انتظار ${wait/1000} ث rpt... (محاولة ${retries}/${maxRetries})`,'warn');
-          setStatus(`⏳ انتظار ${wait/1000}ث...`,'busy');
-          await new Promise(r=>setTimeout(r,wait));
-        }else{
-          addLog(`❌ ${errText.substring(0,150)}`,'error');
-          throw new Error(`API Error ${res.status}: TPM limit exceeded. انتظر دقيقة ثم حاول مرة أخرى`);
-        }
-      }catch(e){
-        if(retries>=maxRetries)throw e;
-        retries++;
-        await new Promise(r=>setTimeout(r,retries*2000));
-      }
-    }
-    if(!res||!res.ok)throw new Error('فشل الاتصال بعد المحاولات');
+    const res=await fetch('https://api.groq.com/openai/v1/chat/completions',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':`Bearer ${GROQ_API_KEY}`},
+      body:JSON.stringify({model:GROQ_MODEL,messages:apiMsgs,temperature:0.7,max_tokens:8192,top_p:1,stream:true})
+    });
+    if(!res.ok){const err=await res.text();throw new Error(`خطأ ${res.status}`)}
 
     const reader=res.body.getReader();const decoder=new TextDecoder();let full='';
     while(true){
@@ -901,25 +757,8 @@ async function doSend(content,files,images){
     const elapsed=((Date.now()-startTime)/1000).toFixed(1);
     addLog(`⏱ استغرق ${elapsed} ثانية`,'success');
 
-    // ===== استخراج الملفات من رد AI =====
-    const extractedFiles=extractFilesFromResponse(full);
-    if(extractedFiles.length>0){
-      addLog(`📦 تم استخراج ${extractedFiles.length} ملف من الرد`,'success');
-      // نضيف الملفات المستخرجة لآخر رسالة مساعد
-      const lastMsg=state.messages[state.messages.length-1];
-      if(lastMsg&&lastMsg.role==='assistant'){
-        if(!lastMsg.files)lastMsg.files=[];
-        for(const ef of extractedFiles){
-          // نتجنب التكرار
-          if(!lastMsg.files.some(x=>x.name===ef.name)){
-            lastMsg.files.push(ef);
-            addLog(`📄 ${ef.name} (${fmtSize(ef.size)})`,'success');
-          }
-        }
-      }
-    }
-
-    const aiMsg={id:genId(),role:'assistant',content:full,timestamp:Date.now(),files:extractedFiles.length?extractedFiles:undefined};
+    // Try to extract files from response
+    const aiMsg={id:genId(),role:'assistant',content:full,timestamp:Date.now()};
     state.messages.push(aiMsg);updateConv();state.streamingContent='';renderMsgs();save();
     addLog('📦 تم تحديث المحادثة','success');
     setStatus('جاهز','');
@@ -1017,24 +856,7 @@ $('uploadConfirm').addEventListener('click',async()=>{
 });
 
 function fileB64(f){return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result.split(',')[1]);r.onerror=rej;r.readAsDataURL(f)})}
-function isTextFile(f){
-  const textExts=['py','js','ts','jsx','tsx','html','css','scss','less','json','xml','yaml','yml','md','txt','csv','sql','sh','bat','ps1','cpp','c','h','hpp','java','go','rs','rb','php','swift','kt','dart','lua','r','scala','pl','hs','ex','exs','clj','groovy','tf','gradle','ini','cfg','conf','log','env','gitignore','dockerfile','makefile','cmake','vue','svelte','astro','mjs','cjs','mts','cts'];
-  const ext=f.name.split('.').pop()?.toLowerCase();
-  return textExts.includes(ext)||f.type.startsWith('text/')||f.type.includes('json')||f.type.includes('javascript')||f.type.includes('xml')||!ext;
-}
-function fileContent(f){
-  return new Promise((res,rej)=>{
-    if(!isTextFile(f)){
-      addLog(`⚠️ ${f.name} ملف ثنائي، سيتم إرسال اسمه فقط`,'warn');
-      res(`[ملف ثنائي: ${f.name} - ${fmtSize(f.size)} - لا يمكن قراءة المحتوى]`);
-      return;
-    }
-    const r=new FileReader();
-    r.onload=()=>{const result=r.result;if(typeof result==='string'&&result.startsWith('data:'))res(result.split(',')[1]||result);else res(result)};
-    r.onerror=()=>res('');
-    r.readAsText(f)
-  })
-}
+function fileContent(f){return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>{const result=r.result;if(typeof result==='string'&&result.startsWith('data:'))res(result.split(',')[1]||result);else res(result)};r.onerror=rej;r.readAsText(f)})}
 
 // Hidden file input (for image button)
 $('imageBtn').addEventListener('click',()=>$('hiddenFileInput').click());
