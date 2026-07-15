@@ -307,9 +307,16 @@ header{
 .chat-input-inner:focus-within{border-color:var(--primary);box-shadow:var(--shadow),0 0 0 3px rgba(99,102,241,.1)}
 .chat-input-row{display:flex;align-items:flex-end;gap:6px;padding:8px}
 .chat-input-actions{display:flex;align-items:center;gap:2px;padding-bottom:2px}
-.chat-input-btn{background:none;color:var(--text3);cursor:pointer;padding:8px;border-radius:8px;font-size:18px;line-height:1;transition:all .2s;min-width:36px;min-height:36px;display:flex;align-items:center;justify-content:center}
-.chat-input-btn:hover{background:var(--bg3);color:var(--primary3)}
-.chat-input-btn:active{background:var(--bg3);color:var(--text)}
+.chat-input-btn{
+  background:var(--bg3);cursor:pointer;padding:0;border-radius:10px;font-size:16px;
+  line-height:1;transition:all .22s;min-width:38px;min-height:38px;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:2px;border:1.5px solid var(--border);color:var(--text2);
+}
+.chat-input-btn:hover{border-color:var(--primary);color:var(--primary3);background:rgba(99,102,241,.08);transform:translateY(-1px)}
+.chat-input-btn:active{transform:translateY(0);background:var(--bg4)}
+.chat-input-btn span.btn-icon{font-size:18px;line-height:1}
+.chat-input-btn span.btn-label{font-size:9px;color:var(--text3);line-height:1;letter-spacing:.3px}
 .chat-input-field{flex:1;background:transparent;color:var(--text);resize:none;padding:8px;font-size:15px;line-height:1.5;max-height:120px;min-height:24px}
 .input-bottom-row{display:flex;align-items:center;justify-content:space-between;padding:0 8px 6px;gap:8px}
 .char-counter{font-size:11px;color:var(--text3)}
@@ -341,11 +348,26 @@ header{
 .dropzone-icon{font-size:36px;margin-bottom:8px}
 .dropzone-text{color:var(--text2);margin-bottom:4px;font-size:14px}
 .dropzone-or{color:var(--text3);font-size:13px;margin-bottom:12px}
-.dropzone-btns{display:flex;justify-content:center;gap:10px}
-.dropzone-btn{padding:10px 18px;background:var(--bg3);border-radius:10px;color:var(--text2);cursor:pointer;font-size:13px;transition:all .2s;display:flex;align-items:center;gap:6px;min-height:40px}
-.dropzone-btn:active{background:var(--bg4);color:var(--text)}
-.allowed-types{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
-.allowed-type{padding:4px 8px;background:var(--bg3);border-radius:4px;font-size:11px;color:var(--text3)}
+.dropzone-btns{display:flex;justify-content:center;gap:12px;flex-wrap:wrap}
+.dropzone-btn{
+  padding:14px 22px;border-radius:14px;cursor:pointer;font-size:14px;font-weight:600;
+  transition:all .25s;display:flex;flex-direction:column;align-items:center;gap:6px;
+  min-width:110px;min-height:80px;justify-content:center;border:2px solid transparent;
+}
+.dropzone-btn.files{
+  background:rgba(99,102,241,.12);color:var(--primary3);
+  border-color:rgba(99,102,241,.35);
+}
+.dropzone-btn.files:hover{background:rgba(99,102,241,.22);border-color:var(--primary);transform:translateY(-2px);box-shadow:0 6px 20px rgba(99,102,241,.2)}
+.dropzone-btn.images{
+  background:rgba(236,72,153,.1);color:#f472b6;
+  border-color:rgba(236,72,153,.3);
+}
+.dropzone-btn.images:hover{background:rgba(236,72,153,.18);border-color:#ec4899;transform:translateY(-2px);box-shadow:0 6px 20px rgba(236,72,153,.2)}
+.dropzone-btn-icon{font-size:26px;line-height:1}
+.dropzone-btn-label{font-size:12px;opacity:.9}
+.allowed-types{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px}
+.allowed-type{padding:4px 10px;background:var(--bg3);border-radius:6px;font-size:11px;color:var(--text3);border:1px solid var(--border)}
 .modal-error{margin-top:12px;padding:10px 12px;background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.2);border-radius:10px;font-size:13px;color:#ef4444;display:none}
 .modal-error.show{display:block}
 .selected-files{margin-top:12px;max-height:180px;overflow-y:auto;display:flex;flex-direction:column;gap:6px}
@@ -485,9 +507,17 @@ header{
         <div class="chat-input-inner">
           <div class="chat-input-row">
             <div class="chat-input-actions">
-              <button class="chat-input-btn" id="fileBtn" title="رفع ملف">📎</button>
-              <button class="chat-input-btn" id="imageBtn" title="رفع صورة للتحليل بالذكاء الاصطناعي" style="position:relative">
-                🖼
+              <button class="chat-input-btn" id="fileBtn" title="رفع ملف">
+                <span class="btn-icon">📎</span>
+                <span class="btn-label">ملف</span>
+              </button>
+              <button class="chat-input-btn" id="imageBtn" title="رفع صورة للتحليل بالذكاء الاصطناعي">
+                <span class="btn-icon">🖼</span>
+                <span class="btn-label">صورة</span>
+              </button>
+              <button class="chat-input-btn" id="searchBtn" title="تفعيل البحث في الويب">
+                <span class="btn-icon">🌐</span>
+                <span class="btn-label">بحث</span>
               </button>
             </div>
             <textarea class="chat-input-field" id="chatInput" rows="1" placeholder="اكتب رسالتك..." dir="rtl"></textarea>
@@ -516,7 +546,7 @@ header{
 <div class="overlay" id="uploadOverlay"></div>
 <div class="modal" id="uploadModal">
   <div class="modal-header">
-    <h2 class="modal-title">رفع الملفات</h2>
+    <h2 class="modal-title">إرفاق ملفات</h2>
     <button class="modal-close" id="uploadClose">✕</button>
   </div>
   <div class="dropzone" id="dropzone">
@@ -524,44 +554,57 @@ header{
     <p class="dropzone-text">اسحب وأفلت الملفات هنا</p>
     <p class="dropzone-or">أو</p>
     <div class="dropzone-btns">
-      <button class="dropzone-btn" id="filesBtn">📄 ملفات</button>
-      <button class="dropzone-btn" id="imagesBtn">🖼 صور</button>
+      <button class="dropzone-btn files" id="filesBtn">
+        <span class="dropzone-btn-icon">📁</span>
+        <span>ملفات</span>
+        <span class="dropzone-btn-label">أي نوع</span>
+      </button>
+      <button class="dropzone-btn images" id="imagesBtn">
+        <span class="dropzone-btn-icon">🖼️</span>
+        <span>صور</span>
+        <span class="dropzone-btn-label">PNG • JPG • WebP</span>
+      </button>
     </div>
-    <input type="file" id="fileInput" multiple style="display:none" accept=".pdf,.doc,.docx,.txt,.xls,.xlsx,.csv,.json,.zip">
-    <input type="file" id="imageInput" multiple style="display:none" accept="image/png,image/jpeg,image/webp,image/gif">
+    <input type="file" id="fileInput" multiple style="display:none" accept="*/*">
+    <input type="file" id="imageInput" multiple style="display:none" accept="image/*">
   </div>
   <div class="allowed-types">
-    <span class="allowed-type">PDF</span><span class="allowed-type">DOC</span><span class="allowed-type">DOCX</span>
-    <span class="allowed-type">TXT</span><span class="allowed-type">XLS</span><span class="allowed-type">XLSX</span>
-    <span class="allowed-type">CSV</span><span class="allowed-type">JSON</span><span class="allowed-type">ZIP</span>
-    <span class="allowed-type">PNG</span><span class="allowed-type">JPG</span><span class="allowed-type">WebP</span><span class="allowed-type">GIF</span>
+    <span class="allowed-type">📄 PDF</span><span class="allowed-type">📝 TXT</span>
+    <span class="allowed-type">📊 Excel</span><span class="allowed-type">📋 CSV</span>
+    <span class="allowed-type">🗂 JSON</span><span class="allowed-type">🗜 ZIP</span>
+    <span class="allowed-type">🖼 صور</span><span class="allowed-type">💻 كود</span>
+    <span class="allowed-type" style="color:var(--primary3);border-color:rgba(99,102,241,.3)">+ أي ملف آخر ✓</span>
   </div>
   <div class="modal-error" id="uploadError"></div>
   <div class="selected-files" id="selectedFiles"></div>
   <div class="modal-actions">
     <button class="modal-btn secondary" id="uploadCancel">إلغاء</button>
-    <button class="modal-btn primary" id="uploadConfirm" disabled>رفع (0)</button>
+    <button class="modal-btn primary" id="uploadConfirm" disabled>إضافة (0)</button>
   </div>
 </div>
 <input type="file" id="hiddenImageInput" multiple style="display:none" accept="image/png,image/jpeg,image/webp,image/gif">
 
 <script>
 // ===== CONFIG =====
-// Vision is handled by Anthropic API (claude-sonnet-4-6) — Groq does NOT support vision on most models
-// Text/file chat stays on Groq for speed; images route to Anthropic
+// ⚠️ تنبيه أمان مهم: المفاتيح دي بتشتغل من المتصفح مباشرة (client-side)، يعني أي حد
+// يفتح "عرض المصدر" (View Source) أو أدوات المطوّر (F12) في المتصفح هيقدر يشوفها وياخدها
+// ويستخدمها بنفسه على حسابك. الطريقة الصح لأي موقع هيستخدمه ناس تانية هي إن المفاتيح دي
+// تتحط في سيرفر/باك اند (زي Cloudflare Worker أو Vercel Function) والمتصفح يكلم السيرفر ده
+// بدل ما يكلم Anthropic/Groq مباشرة. لو الموقع لسه شخصي/تجريبي فمفيش مشكلة كبيرة، بس خليك
+// عارف إن ده الوضع، خصوصاً لو هترفع الكود ده مكان عام زي GitHub.
+//
+// Vision + Web Search handled by Anthropic API (claude-sonnet-4-6) — Groq does NOT support vision
+// Text/file chat stays on Groq for speed; images + web-search-enabled messages route to Anthropic
 const GROQ_API_KEY = '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';
 const GROQ_MODEL = 'llama-3.3-70b-versatile'; // fast text model on Groq
-const ANTHROPIC_MODEL = 'claude-sonnet-4-6'; // vision + complex reasoning
+// 👇 ده اللي كان ناقص وسبب خطأ 401 "x-api-key header is required".
+// حط مفتاح Anthropic API بتاعك هنا (تقدر تجيبه من https://console.anthropic.com/settings/keys)
+const ANTHROPIC_API_KEY = 'ضع_مفتاحك_هنا_REPLACE_ME';
+const ANTHROPIC_MODEL = 'claude-sonnet-4-6'; // vision + web search + complex reasoning
 const SITE_NAME = 'NovaMind AI';
 const MAX_FILE_SIZE = 20 * 1024 * 1024;
-const ALLOWED_TYPES = [
-  'application/pdf','application/msword',
-  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-  'application/vnd.ms-excel',
-  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-  'text/csv','text/plain','application/json','application/zip',
-  'application/x-zip-compressed','image/png','image/jpeg','image/webp','image/gif'
-];
+// All file types accepted — no restrictions
+const ALLOWED_TYPES = null;
 const QUICK_PROMPTS = [
   'ساعدني في كتابة كود',
   'اشرح لي مفهوماً',
@@ -583,7 +626,7 @@ function fmtTime(ts) {
   return d.toLocaleDateString('ar-SA', {month:'short', day:'numeric'});
 }
 function truncate(t, n) { return t.length <= n ? t : t.substring(0, n) + '...' }
-function isAllowed(f) { return ALLOWED_TYPES.includes(f.type) }
+function isAllowed(f) { return true } // all file types accepted
 function isImage(f) { return f.type.startsWith('image/') }
 function fmtSize(b) {
   if (!b) return '0 B';
@@ -600,6 +643,10 @@ function getMediaType(b64url) {
   // extract media type from base64 data url
   const m = b64url.match(/^data:(image\/[a-z]+);base64,/);
   return m ? m[1] : 'image/jpeg';
+}
+function getHostname(url) {
+  try { return new URL(url).hostname.replace(/^www\./, ''); }
+  catch { return url; }
 }
 
 function saveState() {
@@ -630,7 +677,9 @@ let state = {
   userName:'', theme:'dark', conversations:[], currentId:null,
   messages:[], isLoading:false, sidebarOpen:false,
   streamingContent:'', editIndex:-1,
-  pendingImages:[] // base64 images queued for next send (with full data url)
+  pendingImages:[], // base64 images queued for next send (with full data url)
+  pendingFiles:[], // non-image files queued for next send (staged, not auto-sent)
+  webSearchEnabled:false // toggled by searchBtn — routes messages through Anthropic + web_search tool
 };
 let currentAbortController = null;
 
@@ -641,7 +690,7 @@ const chatList=$('chatList'), searchChats=$('searchChats'), newChatBtn=$('newCha
 const chatMessages=$('chatMessages'), chatInput=$('chatInput'), sendBtn=$('sendBtn'), stopBtn=$('stopBtn');
 const themeToggle=$('themeToggle');
 const editBar=$('editBar'), editCancel=$('editCancel');
-const fileBtn=$('fileBtn'), imageBtn=$('imageBtn');
+const fileBtn=$('fileBtn'), imageBtn=$('imageBtn'), searchBtn=$('searchBtn');
 const uploadOverlay=$('uploadOverlay'), uploadModal=$('uploadModal'), uploadClose=$('uploadClose');
 const uploadCancel=$('uploadCancel'), uploadConfirm=$('uploadConfirm');
 const dropzone=$('dropzone'), fileInput=$('fileInput'), imageInput=$('imageInput');
@@ -1001,6 +1050,15 @@ function renderMsg(msg, i) {
     html += `</div>`;
   }
 
+  // show web search sources — click to expand and see what the AI actually searched
+  if (!isUser && msg.sources && msg.sources.length > 0) {
+    const qHtml = (msg.searchQueries && msg.searchQueries.length)
+      ? `<div class="msg-sources-queries">🔍 ${msg.searchQueries.map(q => `<span class="msg-sources-query">${escHtml(q)}</span>`).join('')}</div>`
+      : '';
+    const itemsHtml = msg.sources.map(s => `<a class="msg-source-item" href="${escHtml(s.url)}" target="_blank" rel="noopener"><span class="msg-source-title">${escHtml(s.title)}</span><span class="msg-source-url">${escHtml(getHostname(s.url))}</span></a>`).join('');
+    html += `<details class="msg-sources"><summary class="msg-sources-summary"><span>🌐</span> تم البحث في الويب · ${msg.sources.length} ${msg.sources.length === 1 ? 'مصدر' : 'مصادر'}</summary><div class="msg-sources-body">${qHtml}<div class="msg-sources-list">${itemsHtml}</div></div></details>`;
+  }
+
   html += `<div class="msg-actions"><span class="msg-time">${fmtTime(msg.timestamp)}</span>`;
   if (!isUser && msg.id !== 'welcome') {
     html += `<button class="msg-action" data-copy="${i}" title="نسخ">📋</button>`;
@@ -1042,8 +1100,11 @@ lightboxClose.addEventListener('click', () => lightbox.classList.remove('show'))
 lightbox.addEventListener('click', e => { if (e.target === lightbox) lightbox.classList.remove('show') });
 
 // ===== INPUT =====
+function updateSendBtnState() {
+  sendBtn.disabled = (!chatInput.value.trim() && state.pendingImages.length === 0 && state.pendingFiles.length === 0) || state.isLoading;
+}
 chatInput.addEventListener('input', () => {
-  sendBtn.disabled = (!chatInput.value.trim() && state.pendingImages.length === 0) || state.isLoading;
+  updateSendBtnState();
   chatInput.style.height = 'auto';
   chatInput.style.height = Math.min(chatInput.scrollHeight, 120) + 'px';
   // char counter
@@ -1059,11 +1120,14 @@ stopBtn.addEventListener('click', () => {
   if (currentAbortController) { currentAbortController.abort(); showToast('تم إيقاف الاستجابة') }
 });
 
-// ===== IMAGE PREVIEW STRIP =====
+// ===== PENDING ATTACHMENTS PREVIEW STRIP (images + files) =====
+// Nothing here gets sent until the user actually presses send / hits Enter.
 function updateImagePreview() {
   imgPreviewStrip.innerHTML = '';
-  if (state.pendingImages.length === 0) {
+  const hasAny = state.pendingImages.length > 0 || state.pendingFiles.length > 0;
+  if (!hasAny) {
     imgPreviewStrip.classList.remove('show');
+    updateSendBtnState();
     return;
   }
   imgPreviewStrip.classList.add('show');
@@ -1076,17 +1140,23 @@ function updateImagePreview() {
     const del = document.createElement('button');
     del.className = 'img-thumb-del';
     del.textContent = '✕';
-    del.onclick = () => {
-      state.pendingImages.splice(i, 1);
-      updateImagePreview();
-      sendBtn.disabled = (!chatInput.value.trim() && state.pendingImages.length === 0) || state.isLoading;
-    };
+    del.onclick = () => { state.pendingImages.splice(i, 1); updateImagePreview() };
     wrap.appendChild(img);
     wrap.appendChild(del);
     imgPreviewStrip.appendChild(wrap);
   });
-  // enable send if images pending
-  if (state.pendingImages.length > 0 && !state.isLoading) sendBtn.disabled = false;
+  state.pendingFiles.forEach((f, i) => {
+    const wrap = document.createElement('div');
+    wrap.className = 'file-chip-wrap';
+    wrap.innerHTML = `<span class="file-chip-icon">📄</span><div class="file-chip-info"><div class="file-chip-name">${escHtml(f.name)}</div><div class="file-chip-size">${fmtSize(f.size)}</div></div>`;
+    const del = document.createElement('button');
+    del.className = 'file-chip-del';
+    del.textContent = '✕';
+    del.onclick = () => { state.pendingFiles.splice(i, 1); updateImagePreview() };
+    wrap.appendChild(del);
+    imgPreviewStrip.appendChild(wrap);
+  });
+  updateSendBtnState();
 }
 
 // ===== VISION IMAGE BUTTON =====
@@ -1117,20 +1187,24 @@ async function sendMessage() {
     return;
   }
   const txt = chatInput.value.trim();
-  if ((!txt && state.pendingImages.length === 0) || state.isLoading) return;
+  if ((!txt && state.pendingImages.length === 0 && state.pendingFiles.length === 0) || state.isLoading) return;
   const imgs = [...state.pendingImages];
+  const files = [...state.pendingFiles];
   state.pendingImages = [];
+  state.pendingFiles = [];
   updateImagePreview();
   chatInput.value = ''; sendBtn.disabled = true;
   chatInput.style.height = 'auto';
   charCounter.textContent = '0';
   charCounter.className = 'char-counter';
-  await doSend(txt, [], imgs);
+  await doSend(txt, files, imgs);
 }
 
 // ===== CORE SEND =====
 async function doSend(content, files, images) {
   const hasImages = images && images.length > 0;
+  const useSearch = state.webSearchEnabled;
+  const useAnthropic = hasImages || useSearch;
   const userMsg = {
     id: genId(), role:'user', content,
     timestamp: Date.now(),
@@ -1158,15 +1232,18 @@ async function doSend(content, files, images) {
 - تستخدم اللغة العربية الفصحى بشكل أساسي
 - تخاطب المستخدم باسمه (${state.userName})
 - تقدم إجابات دقيقة ومفيدة باستخدام Markdown
-- عند تحليل الصور، تصف ما تراه بدقة وتجيب على أسئلة المستخدم عنها
+- عند تحليل الصور، تصف ما تراه بدقة وتجيب على أسئلة المستخدم عنها${useSearch ? '\n- لديك أداة بحث في الإنترنت الآن — استخدمها فقط لما تحتاج معلومة حديثة أو متغيرة (أخبار، أسعار، إحصائيات) وابني إجابتك على النتائج' : ''}
 
 تذكر دائماً:
 - أنت ${SITE_NAME} وليس ChatGPT أو Claude أو Gemini
 - لا تقل أبداً أنك تابع لـ OpenAI أو Google أو Anthropic
 - أنت مساعد مستقل تم تطويره بواسطة Mahmoud Ahmed Saeed`;
 
-    if (hasImages) {
-      // ===== VISION PATH: Anthropic API =====
+    if (useAnthropic) {
+      // ===== ANTHROPIC PATH: vision + web search + complex reasoning =====
+      if (!ANTHROPIC_API_KEY || ANTHROPIC_API_KEY.includes('REPLACE_ME')) {
+        throw new Error('محتاج تحط مفتاح Anthropic API الأول عشان تحليل الصور والبحث في الويب يشتغلوا. دوّر على ANTHROPIC_API_KEY في أول الكود وحط مفتاحك الحقيقي بدل النص المؤقت (تقدر تجيبه من console.anthropic.com/settings/keys).');
+      }
       const anthropicMsgs = state.messages.map(m => {
         if (m.role === 'user') {
           const parts = [];
@@ -1188,7 +1265,8 @@ async function doSend(content, files, images) {
         headers: {
           'Content-Type': 'application/json',
           'anthropic-version': '2023-06-01',
-          'anthropic-dangerous-direct-browser-access': 'true'
+          'anthropic-dangerous-direct-browser-access': 'true',
+          'x-api-key': ANTHROPIC_API_KEY
         },
         signal: currentAbortController.signal,
         body: JSON.stringify({
@@ -1196,38 +1274,73 @@ async function doSend(content, files, images) {
           max_tokens: 4096,
           system: sysPrompt,
           messages: anthropicMsgs,
-          stream: true
+          stream: true,
+          ...(useSearch ? {tools: [{type:'web_search_20250305', name:'web_search', max_uses:5}]} : {})
         })
       });
       if (!res.ok) {
         const err = await res.text();
-        throw new Error(`خطأ في تحليل الصورة ${res.status}: ${err}`);
+        throw new Error(`خطأ في الاتصال بالذكاء الاصطناعي ${res.status}: ${err}`);
       }
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
-      let full = '';
+      // block-level state for parsing search events out of the SSE stream
+      let full = '', sseBuf = '', textStarted = false;
+      const blockMeta = {}, turnQueries = [], turnSources = [];
       state.streamingContent = '';
       while (true) {
         const {done, value} = await reader.read();
         if (done) break;
-        const chunk = decoder.decode(value);
-        const lines = chunk.split('\n');
+        // buffer partial lines across chunk boundaries so we never drop/mangle a JSON event
+        sseBuf += decoder.decode(value, {stream:true});
+        const lines = sseBuf.split('\n');
+        sseBuf = lines.pop();
         for (const line of lines) {
-          if (line.startsWith('data: ')) {
-            const data = line.slice(6);
-            if (data === '[DONE]') continue;
-            try {
-              const p = JSON.parse(data);
-              if (p.type === 'content_block_delta' && p.delta?.type === 'text_delta') {
-                full += p.delta.text;
-                state.streamingContent = full;
-                renderStreamingMsg();
-              }
-            } catch {}
+          if (!line.startsWith('data: ')) continue;
+          const data = line.slice(6);
+          if (data === '[DONE]') continue;
+          let p;
+          try { p = JSON.parse(data) } catch { continue }
+
+          if (p.type === 'content_block_start' && p.content_block) {
+            const cb = p.content_block;
+            blockMeta[p.index] = {type: cb.type, partialJson: ''};
+            if (cb.type === 'server_tool_use' && cb.name === 'web_search') {
+              if (!textStarted) showTyping(true, '🔍 بيبحث في الويب...');
+            } else if (cb.type === 'web_search_tool_result' && Array.isArray(cb.content)) {
+              cb.content.forEach(r => {
+                if (r.type === 'web_search_result' && r.url && !turnSources.some(s => s.url === r.url)) {
+                  turnSources.push({title: r.title || getHostname(r.url), url: r.url});
+                }
+              });
+              if (turnSources.length && !textStarted) showTyping(true, `📄 لقى ${turnSources.length} ${turnSources.length === 1 ? 'مصدر' : 'مصادر'}، بيكتب الرد...`);
+            }
+          } else if (p.type === 'content_block_delta' && p.delta) {
+            if (p.delta.type === 'text_delta') {
+              if (!textStarted) { textStarted = true; showTyping(false) }
+              full += p.delta.text;
+              state.streamingContent = full;
+              renderStreamingMsg();
+            } else if (p.delta.type === 'input_json_delta' && blockMeta[p.index]) {
+              blockMeta[p.index].partialJson += p.delta.partial_json || '';
+            }
+          } else if (p.type === 'content_block_stop') {
+            const meta = blockMeta[p.index];
+            if (meta && meta.type === 'server_tool_use' && meta.partialJson) {
+              try {
+                const q = JSON.parse(meta.partialJson).query;
+                if (q && !turnQueries.includes(q)) {
+                  turnQueries.push(q);
+                  if (!textStarted) showTyping(true, `🔍 بيبحث عن: ${q}`);
+                }
+              } catch {}
+            }
           }
         }
       }
       const aiMsg = {id:genId(), role:'assistant', content:full, timestamp:Date.now()};
+      if (turnSources.length) aiMsg.sources = turnSources;
+      if (turnQueries.length) aiMsg.searchQueries = turnQueries;
       state.messages.push(aiMsg); updateConv(); state.streamingContent = ''; renderMessages(); saveState();
 
     } else {
