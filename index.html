@@ -404,7 +404,7 @@ header{display:flex;align-items:center;justify-content:space-between;padding:0 1
 const GROQ_API_KEY='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';
 const SITE_NAME='NovaMind AI';
 const MAX_FILE_SIZE=200*1024*1024;
-const MAX_LINES_PER_FILE=500;
+const MAX_LINES_PER_FILE=200;
 // نماذج متعددة - auto switch حسب المهمة
 const MODELS={
   code:'llama-3.3-70b-versatile',     // الأفضل للبرمجة (70B, 131K context)
@@ -740,87 +740,128 @@ async function doSend(content,files,images){
 المستخدم: ${state.userName}
 المطور: Mahmoud Ahmed Saeed`;
 
-    // تجهيز الملفات للـ API (اقتطاع الملفات الكبيرة)
+    // ===== تصغير حجم الطلب =====
+    // استخراج هيكل الملف (الدوال والكلاسات) للملفات الكبيرة جداً
+    function extractSkeleton(code){
+      const lines=code.split('\n');
+      const skeleton=[];
+      let inMultiline=false;
+      for(let i=0;i<Math.min(lines.length,5000);i++){
+        const line=lines[i];
+        const t=line.trim();
+        if(t.startsWith('"""')||t.startsWith("'''")){inMultiline=!inMultiline;continue}
+        if(inMultiline)continue;
+        // السطور المهمة
+        if(
+          t.startsWith('def ')||t.startsWith('class ')||
+          t.startsWith('import ')||t.startsWith('from ')||
+          t.startsWith('@')||
+          t.startsWith('async def ')||
+          t.startsWith('if __name__')||
+          t.startsWith('#')||
+          /^(public|private|protected|static|final|function|const|let|var|interface|type|enum|struct|trait|impl|fn|pub|use|mod)\s/.test(t)||
+          /^\w+\s*[=:]\s*(lambda|def|class|function)\s/.test(t)
+        ){
+          skeleton.push({line:i+1,text:t.substring(0,120)});
+        }
+      }
+      return skeleton;
+    }
     function prepFileContent(f){
       const lines=f.content.split('\n');
-      if(lines.length>MAX_LINES_PER_FILE){
-        addLog(`⚠️ ملف ${f.name} كبير (${lines.length.toLocaleString()} سطر)، سيتم إرسال أول ${MAX_LINES_PER_FILE.toLocaleString()} سطر`,'warn');
-        return lines.slice(0,MAX_LINES_PER_FILE).join('\n')+`\n\n... [تم اقتطاع ${(lines.length-MAX_LINES_PER_FILE).toLocaleString()} سطر. أخبرني إذا احتجت باقي الملف]`;
+      if(lines.length<=100)return f.content;
+      // للملفات الكبيرة: نرسل أول 100 سطر + هيكل الملف
+      addLog(`🔍 ${f.name}: ${lines.length.toLocaleString()} سطر، استخراج الهيكل...`,'warn');
+      const head=lines.slice(0,100).join('\n');
+      const skeleton=extractSkeleton(f.content);
+      let skelText='';
+      if(skeleton.length>0&&skeleton.length<200){
+        skelText='\n\n--- هيكل الملف (skeleton) ---\n';
+        for(const s of skeleton)skelText+=`${s.line}: ${s.text}\n`;
       }
-      return f.content;
+      const totalHidden=lines.length-100;
+      return head+skelText+`\n\n... [${totalHidden.toLocaleString()} سطر مخفية. أخبرني أي جزء تريد رؤيته]`;
+    }
+    // نحتفظ بآخر رسالتين فقط + أول رسالة ترحيب
+    let msgsForApi=state.messages.filter(m=>m.role==='user'||m.role==='assistant');
+    if(msgsForApi.length>3){
+      msgsForApi=msgsForApi.slice(-3);
+      addLog(`📏 تقليص السياق إلى آخر 3 رسائل`,'warn');
     }
 
-    // بناء رسائل API
     const isVision=currentModel===MODELS.vision;
     const apiMsgs=[{role:'system',content:sysPrompt}];
-    for(const m of state.messages){
+    for(const m of msgsForApi){
       if(m.role==='user'){
         let msgText=m.content||'';
+        // مهم: لا نرسل محتوى الملفات من التاريخ، فقط الأسماء
         if(m.files&&m.files.length>0){
-          msgText+='\n\n'+(await Promise.all(m.files.map(async(f,i)=>{
-            const content=prepFileContent(f);
-            return `--- الملف ${i+1}: ${f.name} (${fmtSize(f.size)}) ---\n\`\`\`\n${content}\n\`\`\``;
-          }))).join('\n\n');
+          const names=m.files.map(f=>f.name).join('، ');
+          msgText+=`\n\n[الملفات المرفوعة سابقاً: ${names}]`;
         }
-        // إذا في صور والنموذج Vision
-        if(m.images&&m.images.length>0&&isVision){
-          const parts=[{type:'text',text:msgText}];
-          for(const img of m.images)parts.push({type:'image_url',image_url:{url:`data:image/jpeg;base64,${img}`,detail:'high'}});
-          apiMsgs.push({role:'user',content:parts});
-          addLog(`🖼 تم تضمين ${m.images.length} صورة من السياق`,'info');
-        }else{
-          apiMsgs.push({role:'user',content:msgText});
-        }
+        apiMsgs.push({role:'user',content:msgText});
       }else apiMsgs.push({role:'assistant',content:m.content});
     }
 
-    // دمج الملفات/الصور الجديدة مع آخر رسالة مستخدم
-    const lu=apiMsgs.slice().reverse().find(m=>m.role==='user');
-    if(lu&&(files.length||images.length)){
-      let txt=typeof lu.content==='string'?lu.content:'';
-      if(Array.isArray(lu.content)){
-        // لو المحتوى مصفوفة (فيه صور)، ناخد النص
-        const first=lu.content.find(p=>p.type==='text');
-        txt=first?.text||'';
+    // الملفات الجديدة فقط هي اللي تتبعت مع آخر رسالة
+    if(files.length||images.length){
+      let lastUser=apiMsgs.slice().reverse().find(m=>m.role==='user');
+      if(!lastUser){
+        apiMsgs.push({role:'user',content:''});
+        lastUser=apiMsgs[apiMsgs.length-1];
       }
+      let txt=typeof lastUser.content==='string'?lastUser.content:'';
       if(files.length){
-        txt+='\n\n'+(await Promise.all(files.map(async(f,i)=>{
-          const content=prepFileContent(f);
-          return `--- الملف ${i+1}: ${f.name} (${fmtSize(f.size)}) ---\n\`\`\`\n${content}\n\`\`\``;
-        }))).join('\n\n');
+        const parts=await Promise.all(files.map(async f=>{
+          const c=prepFileContent(f);
+          return `--- ${f.name} (${fmtSize(f.size)}) ---\n\`\`\`\n${c}\n\`\`\``;
+        }));
+        txt+='\n\n'+parts.join('\n\n');
       }
       if(images.length&&isVision){
-        const parts=[{type:'text',text:txt}];
-        for(const img of images)parts.push({type:'image_url',image_url:{url:`data:image/jpeg;base64,${img}`,detail:'high'}});
-        // Also add existing images from lu if it was already a parts array
-        if(Array.isArray(lu.content)){
-          for(const p of lu.content){
-            if(p.type==='image_url'&&!parts.some(x=>x.image_url?.url===p.image_url?.url)){
-              parts.push(p);
-            }
-          }
-        }
-        lu.content=parts;
-        addLog(`🖼 تم رفع ${images.length} صورة للتحليل`,'info');
+        const ct=[{type:'text',text:txt}];
+        for(const img of images.slice(0,3))ct.push({type:'image_url',image_url:{url:`data:image/jpeg;base64,${img}`,detail:'auto'}});
+        lastUser.content=ct;
+        addLog(`🖼 ${Math.min(images.length,3)} صورة للتحليل`,'info');
       }else if(images.length&&!isVision){
-        txt+='\n\n[تم رفع صور لكن النموذج لا يدعم تحليل الصور]';
-        lu.content=txt;
-        addLog(`⚠️ النموذج الحالي لا يدعم الصور`,'warn');
-      }else{
-        lu.content=txt;
-      }
+        txt+='\n\n[⚠️ النموذج لا يدعم تحليل الصور]';
+        lastUser.content=txt;
+        addLog(`⚠️ النموذج لا يدعم الصور`,'warn');
+      }else lastUser.content=txt;
     }
 
     addLog('🤖 إرسال إلى الذكاء الاصطناعي...','info');
     state.streamingContent='';
     const startTime=Date.now();
 
-    const res=await fetch('https://api.groq.com/openai/v1/chat/completions',{
-      method:'POST',
-      headers:{'Content-Type':'application/json','Authorization':`Bearer ${GROQ_API_KEY}`},
-      body:JSON.stringify({model:currentModel,messages:apiMsgs,temperature:0.7,max_tokens:4096,top_p:1,stream:true})
-    });
-    if(!res.ok){const errText=await res.text();addLog(`❌ رد API: ${errText}`,'error');throw new Error(`API Error ${res.status}: ${errText.substring(0,200)}`)}
+    // ===== إرسال مع إعادة محاولة تلقائية =====
+    let retries=0;const maxRetries=2;let res;
+    while(retries<=maxRetries){
+      try{
+        res=await fetch('https://api.groq.com/openai/v1/chat/completions',{
+          method:'POST',
+          headers:{'Content-Type':'application/json','Authorization':`Bearer ${GROQ_API_KEY}`},
+          body:JSON.stringify({model:currentModel,messages:apiMsgs,temperature:0.7,max_tokens:2048,top_p:1,stream:true})
+        });
+        if(res.ok)break;
+        const errText=await res.text();
+        if((res.status===429||res.status===413)&&retries<maxRetries){
+          retries++;
+          const wait=retries*3000;
+          addLog(`⏳ تجاوز حد الطلبات، انتظار ${wait/1000} ث rpt... (محاولة ${retries}/${maxRetries})`,'warn');
+          setStatus(`⏳ انتظار ${wait/1000}ث...`,'busy');
+          await new Promise(r=>setTimeout(r,wait));
+        }else{
+          addLog(`❌ ${errText.substring(0,150)}`,'error');
+          throw new Error(`API Error ${res.status}: TPM limit exceeded. انتظر دقيقة ثم حاول مرة أخرى`);
+        }
+      }catch(e){
+        if(retries>=maxRetries)throw e;
+        retries++;
+        await new Promise(r=>setTimeout(r,retries*2000));
+      }
+    }
+    if(!res||!res.ok)throw new Error('فشل الاتصال بعد المحاولات');
 
     const reader=res.body.getReader();const decoder=new TextDecoder();let full='';
     while(true){
