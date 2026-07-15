@@ -402,7 +402,7 @@ header{display:flex;align-items:center;justify-content:space-between;padding:0 1
 
 <script>
 const GROQ_API_KEY='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';
-const GROQ_MODEL='llama-3.2-90b-vision-preview';
+const GROQ_MODEL='meta-llama/llama-4-scout-17b-16e-instruct';
 const SITE_NAME='NovaMind AI';
 const MAX_FILE_SIZE=200*1024*1024;
 const MAX_LINES_PER_FILE=2000; // أقصى عدد أسطر نرسلها للـ AI
@@ -723,7 +723,7 @@ async function doSend(content,files,images){
     }
 
     // بناء رسائل API
-    const isVision=GROQ_MODEL.includes('vision');
+    const isVision=GROQ_MODEL.includes('vision')||GROQ_MODEL.includes('llama-4');
     const apiMsgs=[{role:'system',content:sysPrompt}];
     for(const m of state.messages){
       if(m.role==='user'){
