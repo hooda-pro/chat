@@ -609,8 +609,7 @@ function initParticles(){
 nameInput.addEventListener('input',()=>{
   startBtn.disabled=!nameInput.value.trim();
 });
-document.getElementById('welcomeForm').addEventListener('submit',e=>{
-  e.preventDefault();
+function handleStart(){
   const n=nameInput.value.trim();
   if(!n)return;
   state.userName=n;
@@ -620,6 +619,10 @@ document.getElementById('welcomeForm').addEventListener('submit',e=>{
     welcome.style.display='none';
     initApp();
   },500);
+}
+startBtn.addEventListener('click',handleStart);
+nameInput.addEventListener('keydown',e=>{
+  if(e.key==='Enter')handleStart();
 });
 
 // ===== INIT APP =====
