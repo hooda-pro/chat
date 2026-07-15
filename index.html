@@ -402,10 +402,17 @@ header{display:flex;align-items:center;justify-content:space-between;padding:0 1
 
 <script>
 const GROQ_API_KEY='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';
-const GROQ_MODEL='meta-llama/llama-4-scout-17b-16e-instruct';
 const SITE_NAME='NovaMind AI';
 const MAX_FILE_SIZE=200*1024*1024;
-const MAX_LINES_PER_FILE=2000; // أقصى عدد أسطر نرسلها للـ AI
+const MAX_LINES_PER_FILE=500;
+// نماذج متعددة - auto switch حسب المهمة
+const MODELS={
+  code:'llama-3.3-70b-versatile',     // الأفضل للبرمجة (70B, 131K context)
+  vision:'meta-llama/llama-4-scout-17b-16e-instruct', // للصور (17B, supports images)
+  fast:'llama-3.1-8b-instant',        // سريع للأسئلة البسيطة (8B)
+  reasoning:'openai/gpt-oss-120b',    // للاستدلال المنطقي العميق (120B)
+};
+let currentModel=MODELS.code;
 
 // ===== STATE =====
 let state={
@@ -685,6 +692,27 @@ async function doSend(content,files,images){
   }
 
   try{
+    // ===== تحديد النموذج تلقائياً حسب المهمة =====
+    const hasImages=images.length>0||state.messages.some(m=>m.images?.length);
+    const hasLargeFile=files.some(f=>f.content.split('\n').length>300)||state.messages.some(m=>m.files?.some(f=>f.content.split('\n').length>300));
+    const codeExts=['py','js','ts','jsx','tsx','html','css','cpp','c','java','go','rs','rb','php','swift','kt','dart'];
+    const hasCodeFiles=files.some(f=>{const e=f.name.split('.').pop()?.toLowerCase();return codeExts.includes(e)})||
+      state.messages.some(m=>m.files?.some(f=>{const e=f.name.split('.').pop()?.toLowerCase();return codeExts.includes(e)}));
+
+    if(hasImages){
+      currentModel=MODELS.vision;
+      addLog(`🖼 تم اكتشاف صور → استخدام ${currentModel}`,'info');
+    }else if(hasCodeFiles||hasLargeFile){
+      currentModel=MODELS.code;
+      addLog(`💻 ملفات برمجية → استخدام ${currentModel}`,'info');
+    }else{
+      // استخدام النموذج المناسب حسب طول المحادثة
+      const totalChars=state.messages.reduce((s,m)=>s+m.content.length,0)+content.length;
+      currentModel=totalChars>5000?MODELS.code:MODELS.fast;
+      addLog(`🤖 استخدام ${currentModel}`,'info');
+    }
+    setStatus(`🔄 ${currentModel.split('/').pop()||currentModel}`,'busy');
+
     const sysPrompt=`أنت ${SITE_NAME}، مساعد برمجة متطور. اسمك ${SITE_NAME}.
 
 مهمتك: قراءة وتحليل وتعديل وتحسين الكود المصدري. أنت خبير في جميع لغات البرمجة.
@@ -723,7 +751,7 @@ async function doSend(content,files,images){
     }
 
     // بناء رسائل API
-    const isVision=GROQ_MODEL.includes('vision')||GROQ_MODEL.includes('llama-4');
+    const isVision=currentModel===MODELS.vision;
     const apiMsgs=[{role:'system',content:sysPrompt}];
     for(const m of state.messages){
       if(m.role==='user'){
@@ -790,7 +818,7 @@ async function doSend(content,files,images){
     const res=await fetch('https://api.groq.com/openai/v1/chat/completions',{
       method:'POST',
       headers:{'Content-Type':'application/json','Authorization':`Bearer ${GROQ_API_KEY}`},
-      body:JSON.stringify({model:GROQ_MODEL,messages:apiMsgs,temperature:0.7,max_tokens:8192,top_p:1,stream:true})
+      body:JSON.stringify({model:currentModel,messages:apiMsgs,temperature:0.7,max_tokens:4096,top_p:1,stream:true})
     });
     if(!res.ok){const errText=await res.text();addLog(`❌ رد API: ${errText}`,'error');throw new Error(`API Error ${res.status}: ${errText.substring(0,200)}`)}
 
