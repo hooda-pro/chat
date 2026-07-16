@@ -699,7 +699,12 @@ function initParticles(){
 // التطبيق كله للأبد. بالنسبة للبث (streaming) في streamModelWithFallback تحت،
 // المهلة دي بترجع تتصفّر مع كل جزء جديد بيوصل (resetIdle)، يعني الموديل يقدر
 // ياخد وقته العادي بالكامل طول ما لسه شغال وبيبعت حاجة، وميتقطعش غصب عنه.
-const FETCH_TIMEOUT_MS=3600000; // ساعة كاملة (كانت 25 ثانية فقط)
+const FETCH_TIMEOUT_MS=3600000; // ساعة كاملة (كانت 25 ثانية فقط) — للشات العادي بس
+// مهلة منفصلة وقصيرة للمكالمة الصوتية تحديداً: الساعة كاملة مناسبة للشات (المستخدم بيكتب
+// وممكن يستنى)، لكنها كارثة لمكالمة حية — لو موديل سكت، المستخدم هيفضل واقف قدام
+// "جاري التفكير..." من غير أي صوت لحد ساعة كاملة قبل ما يجرب البديل. فبنرجّع هنا لنفس
+// الـ 25 ثانية القديمة، لكن للمكالمة بس، عشان الفشل يتكشف بسرعة ويتقال بصوت أو يتجرب بديل.
+const CALL_FETCH_TIMEOUT_MS=25000;
 const STOP_ERROR='__USER_STOPPED__';
 // عنصر تحكم عام بيتنشئ مع كل طلب جديد (doSend) وبيتلغي لو المستخدم ضغط زرار
 // الإيقاف (⏹). كل الدوال اللي بتعمل fetch بتربط نفسها بيه عشان الإلغاء يوصل
@@ -710,9 +715,9 @@ function linkUserAbort(controller){
   if(globalUserAbort.signal.aborted){controller.abort();return}
   globalUserAbort.signal.addEventListener('abort',()=>controller.abort(),{once:true});
 }
-function fetchWithTimeout(url,options={}){
+function fetchWithTimeout(url,options={},timeoutMs=FETCH_TIMEOUT_MS){
   const controller=new AbortController();
-  const timer=setTimeout(()=>controller.abort(),FETCH_TIMEOUT_MS);
+  const timer=setTimeout(()=>controller.abort(),timeoutMs);
   linkUserAbort(controller);
   return fetch(url,{...options,signal:controller.signal}).finally(()=>clearTimeout(timer));
 }
@@ -720,7 +725,13 @@ function fetchWithTimeout(url,options={}){
 // ===== API CALLER مرن مع بدائل تلقائية =====
 // يجرب كل موديل في القائمة بالترتيب. لو موديل رجع 404 (اتلغى) أو 429 (تجاوز الحد)
 // أو أي خطأ سيرفر، يجرب اللي بعده تلقائياً بدل ما يوقف التطبيق كله.
-async function callModelWithFallback(kind,body,{stream=false}={}){
+// أكواد الخطأ اللي تستاهل "جرب البديل" بدل ما توقف الطلب كله:
+// 401/403 = مشكلة بمفتاح معيّن، 404 = الموديل مش موجود، 429 = تجاوز الحد،
+// 500/502/503/504 = أخطاء سيرفر قياسية، و520-530 = أكواد Cloudflare تحديداً
+// (524 = "A timeout occurred": الأصل سكت أكتر من مهلة Cloudflare الداخلية —
+// ده اللي كان بيوقّف z-ai/glm-5.2 بره أي منطق بديل لأنه ما كانش في القايمة أصلاً).
+const RETRYABLE_STATUS=[401,403,404,429,500,502,503,504,520,521,522,523,524,525,526,527,528,529,530];
+async function callModelWithFallback(kind,body,{stream=false,timeoutMs=FETCH_TIMEOUT_MS}={}){
   const modelList=CONFIG.models[kind]||[];
   let lastErr=null;
   for(let i=0;i<modelList.length;i++){
@@ -735,11 +746,9 @@ async function callModelWithFallback(kind,body,{stream=false}={}){
           method:'POST',
           headers:{'Content-Type':'application/json','Authorization':`Bearer ${apiKey}`},
           body:JSON.stringify({...body,model})
-        });
+        },timeoutMs);
         if(res.ok)return{res,modelUsed:model};
-        // 401/403 = مشكلة بالمفتاح ده تحديداً (اتقفل/خلص رصيده) → جرب المفتاح اللي بعده بنفس الموديل
-        // 404 = الموديل مش موجود/اتشال، 429 = تجاوز الحد، 5xx = مشكلة مؤقتة بالسيرفر → جرب البديل
-        if([401,403,404,429,500,502,503].includes(res.status)&&!isLastCombo){
+        if(RETRYABLE_STATUS.includes(res.status)&&!isLastCombo){
           lastErr=new Error(`${model} (مفتاح ${k+1}) رجع ${res.status}، بجرب البديل...`);
           continue;
         }
@@ -747,7 +756,7 @@ async function callModelWithFallback(kind,body,{stream=false}={}){
         throw new Error(`خطأ ${res.status}: ${errText}`);
       }catch(e){
         if(e.name==='AbortError'&&globalUserAbort?.signal.aborted)throw new Error(STOP_ERROR);
-        lastErr=e.name==='AbortError'?new Error(`${model} (مفتاح ${k+1}) ما ردش خلال ${FETCH_TIMEOUT_MS/1000} ثانية، بجرب البديل...`):e;
+        lastErr=e.name==='AbortError'?new Error(`${model} (مفتاح ${k+1}) ما ردش خلال ${timeoutMs/1000} ثانية، بجرب البديل...`):e;
         if(isLastCombo)throw lastErr;
       }
     }
@@ -759,7 +768,7 @@ async function callModelWithFallback(kind,body,{stream=false}={}){
 // أول توكن رجع بنجاح تكمل عليه لحد النهاية. لو الاتصال فشل فوراً (قبل أي
 // توكن) تجرب اللي بعده. لو فشل بعد ما بدأ يبعت جزء من الرد، بنرجّع اللي
 // اتجمع لحد كده بدل ما نضيّعه بالكامل.
-async function streamModelWithFallback(kind,body,onToken){
+async function streamModelWithFallback(kind,body,onToken,timeoutMs=FETCH_TIMEOUT_MS){
   // باگ كان هنا: كان بيقرأ CONFIG.openrouterApiKey (بالمفرد) وده مش موجود أصلاً
   // (الموجود بس CONFIG.openrouterApiKeys الجمع)، فكانت النتيجة apiKey=undefined
   // و"Authorization: Bearer undefined" → 401 "Missing Authentication header".
@@ -781,8 +790,8 @@ async function streamModelWithFallback(kind,body,onToken){
       // ثابت من الأول)، فلو سكت 25 ثانية من غير أي جديد بيقطع ويجرب البديل.
       const streamController=new AbortController();
       linkUserAbort(streamController);
-      let idleTimer=setTimeout(()=>streamController.abort(),FETCH_TIMEOUT_MS);
-      const resetIdle=()=>{clearTimeout(idleTimer);idleTimer=setTimeout(()=>streamController.abort(),FETCH_TIMEOUT_MS)};
+      let idleTimer=setTimeout(()=>streamController.abort(),timeoutMs);
+      const resetIdle=()=>{clearTimeout(idleTimer);idleTimer=setTimeout(()=>streamController.abort(),timeoutMs)};
       try{
         const res=await fetch(endpoint,{
           method:'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${apiKey}`},
@@ -791,8 +800,8 @@ async function streamModelWithFallback(kind,body,onToken){
         });
         if(!res.ok){
           // 401/403 = مشكلة بالمفتاح ده (اتقفل/خلص رصيده) → جرب المفتاح اللي بعده بنفس الموديل
-          // 404/429/5xx = الموديل نفسه مش متاح دلوقتي → جرب البديل
-          if([401,403,404,429,500,502,503].includes(res.status)&&!isLastCombo){
+          // 404/429/5xx (شامل 504 و524 Cloudflare) = الموديل نفسه مش متاح دلوقتي → جرب البديل
+          if(RETRYABLE_STATUS.includes(res.status)&&!isLastCombo){
             lastErr=new Error(`${model} (مفتاح ${k+1}) رجع ${res.status}، بجرب البديل...`);
             continue;
           }
@@ -819,7 +828,7 @@ async function streamModelWithFallback(kind,body,onToken){
           if(gotAnyToken)return{full,modelUsed:model,partial:true,stopped:true};
           throw new Error(STOP_ERROR);
         }
-        lastErr=e.name==='AbortError'?new Error(`${model} (مفتاح ${k+1}) سكت ${FETCH_TIMEOUT_MS/1000} ثانية من غير رد، بجرب البديل...`):e;
+        lastErr=e.name==='AbortError'?new Error(`${model} (مفتاح ${k+1}) سكت ${timeoutMs/1000} ثانية من غير رد، بجرب البديل...`):e;
         if(gotAnyToken)return{full,modelUsed:model,partial:true}; // كان في تقدم، منضيّعوش
         if(isLastCombo)throw lastErr;
       }
@@ -836,7 +845,7 @@ async function streamModelWithFallback(kind,body,onToken){
 
 // نداء مباشر لموديل محدد بالاسم (بيحدد المزوّد الصح للموديل ده تلقائياً — OpenRouter
 // عادةً، أو NVIDIA لو الموديل z-ai/glm-5.2 — وبيجرب كل المفاتيح الاحتياطية المتاحة لنفس الموديل)
-async function callSpecificCodeModel(model,body){
+async function callSpecificCodeModel(model,body,timeoutMs=FETCH_TIMEOUT_MS){
   const{endpoint,apiKeys}=getProviderFor('code',model);
   let lastErr=null;
   for(let k=0;k<apiKeys.length;k++){
@@ -845,12 +854,12 @@ async function callSpecificCodeModel(model,body){
         method:'POST',
         headers:{'Content-Type':'application/json','Authorization':`Bearer ${apiKeys[k]}`},
         body:JSON.stringify({...body,model,stream:false})
-      });
+      },timeoutMs);
       if(res.ok){
         const data=await res.json();
         return data.choices?.[0]?.message?.content||'';
       }
-      if([401,403,404,429,500,502,503].includes(res.status)&&k<apiKeys.length-1){
+      if(RETRYABLE_STATUS.includes(res.status)&&k<apiKeys.length-1){
         lastErr=new Error(`${model} (مفتاح ${k+1}) رجع ${res.status}، بجرب المفتاح اللي بعده...`);
         continue;
       }
@@ -862,7 +871,7 @@ async function callSpecificCodeModel(model,body){
       // كانت بتترجمها. هنا بقى نفس المنطق عشان وضع البرمجة التعاوني (اللي بيستخدم الدالة دي)
       // يوريك رسالة واضحة بدل ما "تسرّب" رسالة الـ DOMException الخام.
       if(e.name==='AbortError'&&globalUserAbort?.signal.aborted)throw new Error(STOP_ERROR);
-      lastErr=e.name==='AbortError'?new Error(`${model} (مفتاح ${k+1}) ما ردش خلال ${FETCH_TIMEOUT_MS/1000} ثانية، بجرب البديل...`):e;
+      lastErr=e.name==='AbortError'?new Error(`${model} (مفتاح ${k+1}) ما ردش خلال ${timeoutMs/1000} ثانية، بجرب البديل...`):e;
       if(k===apiKeys.length-1)throw lastErr;
     }
   }
@@ -870,18 +879,18 @@ async function callSpecificCodeModel(model,body){
 }
 
 // نداء مباشر لـ gemma عبر OpenRouter (مش جزء من قايمة models.code، لكنه بيشارك في التعاون برضه)
-async function callGemmaDirect(body){
-  return callSpecificCodeModel('google/gemma-4-31b-it:free',body);
+async function callGemmaDirect(body,timeoutMs=FETCH_TIMEOUT_MS){
+  return callSpecificCodeModel('google/gemma-4-31b-it:free',body,timeoutMs);
 }
 
 // المنسّق: يشغّل كل موديلات البرمجة الموجودة في CONFIG.models.code + gemma مع بعض بالتوازي،
 // وبعدين يدمج كل المسودات الناجحة في رد نهائي واحد (streaming)
-async function getCollaborativeCodeResponse(apiMsgs,maxTokens,onToken){
+async function getCollaborativeCodeResponse(apiMsgs,maxTokens,onToken,timeoutMs=FETCH_TIMEOUT_MS){
   const body={messages:apiMsgs,temperature:0.7,max_tokens:maxTokens,top_p:1};
   const codeModels=CONFIG.models.code;
   const calls=[
-    ...codeModels.map(model=>callSpecificCodeModel(model,body).then(text=>({model,text}))),
-    callGemmaDirect(body).then(text=>({model:'google/gemma-4-31b-it:free',text}))
+    ...codeModels.map(model=>callSpecificCodeModel(model,body,timeoutMs).then(text=>({model,text}))),
+    callGemmaDirect(body,timeoutMs).then(text=>({model:'google/gemma-4-31b-it:free',text}))
   ];
   const results=await Promise.allSettled(calls);
   const drafts=results.filter(r=>r.status==='fulfilled'&&r.value.text&&r.value.text.trim()).map(r=>r.value);
@@ -903,7 +912,7 @@ async function getCollaborativeCodeResponse(apiMsgs,maxTokens,onToken){
 ${draftsBlock}`};
   const{full}=await streamModelWithFallback('code',{
     messages:[...apiMsgs,mergeMsg],temperature:0.4,max_tokens:maxTokens,top_p:1
-  },onToken);
+  },onToken,timeoutMs);
   return{full,modelUsed:`merged(${drafts.map(d=>d.model).join('+')})`};
 }
 
@@ -1441,7 +1450,10 @@ async function sendMessage(){
   await doSend(content,filesToSend,imagesToSend);
 }
 
-async function doSend(content,files,images){
+async function doSend(content,files,images,isCall=false){
+  // في المكالمة الصوتية بنستخدم مهلة قصيرة (25 ثانية) بدل الساعة الكاملة، عشان لو موديل
+  // سكت يتقفز على البديل بسرعة والمستخدم مايفضلش واقف صامت قدام "جاري التفكير..." طويل.
+  const timeoutMs=isCall?CALL_FETCH_TIMEOUT_MS:FETCH_TIMEOUT_MS;
   const userMsg={id:genId(),role:'user',content,timestamp:Date.now(),files:files.length?files:undefined,images:images.length?images:undefined};
   state.messages.push(userMsg);updateConv();renderMessages();saveState();
   state.isLoading=true;globalUserAbort=new AbortController();updateSendBtnState();showTyping(true);
@@ -1551,12 +1563,12 @@ ${useCodeModel?codeFilePrompt:`
       setStatus(files.length?'جاري تحليل الملف المرفوع...':'جاري تحليل طلبك...');
       await new Promise(r=>setTimeout(r,500));
       setStatus('جاري إنشاء الكود الآن...');
-      const{full:collabFull}=await getCollaborativeCodeResponse(apiMsgs,16000,onPartial);
+      const{full:collabFull}=await getCollaborativeCodeResponse(apiMsgs,16000,onPartial,timeoutMs);
       full=collabFull;
     }else{
       const{full:streamedFull}=await streamModelWithFallback('general',{
         messages:apiMsgs,temperature:0.7,max_tokens:4096,top_p:1
-      },onPartial);
+      },onPartial,timeoutMs);
       full=streamedFull;
     }
     let aiMsg;
@@ -1571,7 +1583,7 @@ ${useCodeModel?codeFilePrompt:`
             const retryMsgs=[...apiMsgs,{role:'assistant',content:full},{role:'user',content:'الرد اللي رجعته مش الملف كاملاً، فيه جزء ناقص أو مختصر. أرسل الملف كاملاً من أول سطر لآخر سطر بعد التعديل داخل بلوك كود واحد فقط، ابدأ به مباشرة قبل أي شرح، ولا تحذف أو تختصر أي جزء من الملف الأصلي لم يتغيّر.'}];
             const{res:retryRes}=await callModelWithFallback('code',{
               messages:retryMsgs,temperature:0.2,max_tokens:16000,top_p:1,stream:false
-            });
+            },{timeoutMs});
             {
               const retryData=await retryRes.json();
               const retryFull=retryData.choices?.[0]?.message?.content||'';
@@ -1799,12 +1811,15 @@ async function processCallTranscript(text){
   if(!text){startCallListening();return}
   callState.processing=true;setOrbMode('');setCallStatus('جاري التفكير...');
   const beforeCount=state.messages.length;
-  await doSend(text,[],[]);
+  await doSend(text,[],[],true);
   const reply=state.messages.slice(beforeCount).reverse().find(m=>m.role==='assistant');
   callState.processing=false;
   if(!callState.active)return;
+  // ضمان إضافي: حتى لو مفيش رد نهائي اتسجل لأي سبب، لازم نقول للمستخدم بصوته إن
+  // فيه مشكلة بدل ما نرجع نسمعه بصمت وهو مش فاهم حصل ايه (كان ده أصل الشكوى:
+  // المكالمة بتفضل واقفة على "جاري التفكير..." من غير ما تتكلم).
   if(reply&&reply.content)speakCallReply(reply.content);
-  else startCallListening();
+  else speakCallReply('معلش، حصل تأخير في الرد، جرب تاني.');
 }
 function speakCallReply(text){
   const clean=stripForSpeech(text);
