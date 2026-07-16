@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
 <meta name="theme-color" content="#020617">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<title>NovaMind AI</title>
+<title>فانيل AI | Vanil AI</title>
 <style>
 /* ===== RESET ===== */
 *,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
@@ -58,8 +58,9 @@ a{color:var(--primary3);text-decoration:none}
 .w-content{position:relative;z-index:10;text-align:center;padding:0 24px;max-width:420px;width:100%}
 .w-logo{width:96px;height:96px;margin:0 auto 32px;border-radius:var(--r2);padding:2px;background:linear-gradient(135deg,var(--primary),var(--purple),var(--pink));box-shadow:var(--shadow);animation:slideUp .6s .2s both}
 .w-logo-inner{width:100%;height:100%;border-radius:14px;background:var(--bg);display:flex;align-items:center;justify-content:center;font-size:40px}
-.w-title{font-size:clamp(28px,6vw,44px);font-weight:800;margin-bottom:16px;animation:slideUp .6s .4s both}
+.w-title{font-size:clamp(28px,6vw,44px);font-weight:800;margin-bottom:4px;animation:slideUp .6s .4s both}
 .w-title span{background:linear-gradient(135deg,var(--primary3),var(--purple),var(--pink));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.w-title-sub{direction:ltr;color:var(--text3);font-size:clamp(12px,2.4vw,15px);letter-spacing:2px;font-weight:600;margin-bottom:24px;animation:slideUp .6s .5s both}
 .w-desc{color:var(--text2);font-size:clamp(14px,3vw,17px);line-height:1.8;margin-bottom:40px;animation:slideUp .6s .6s both}
 .w-form{animation:slideUp .6s .8s both}
 .w-input{width:100%;padding:16px 24px;background:var(--bg3);border:2px solid var(--border);border-radius:var(--r2);color:var(--text);font-size:18px;text-align:center;transition:border .3s;margin-bottom:16px;-webkit-appearance:none}
@@ -304,11 +305,32 @@ header{
 .attach-chip .attach-remove:hover{color:var(--text)}
 .attach-big-badge{font-size:10px;background:rgba(99,102,241,.15);color:var(--primary3);padding:2px 6px;border-radius:6px;flex-shrink:0;white-space:nowrap}
 
-/* ===== MODEL SWITCHER ===== */
-.model-switcher{display:flex;align-items:center;gap:6px;padding:0 8px 6px;flex-wrap:wrap}
-.model-pill{display:flex;align-items:center;gap:5px;background:var(--bg3);border:1px solid var(--border);border-radius:999px;padding:5px 12px;font-size:12px;color:var(--text2);cursor:pointer;transition:all .2s;user-select:none}
-.model-pill:hover{border-color:var(--primary3);color:var(--text)}
-.model-pill.active{background:linear-gradient(to left,var(--primary2),var(--purple));border-color:transparent;color:#fff;font-weight:600}
+/* ===== MODEL DROPDOWN ===== */
+/* قائمة منسدلة بدل صف الأزرار: موديل واحد بس ظاهر ومختار في كل لحظة، وضغطة على السهم
+   بتفتح قايمة تختار منها بدل ما تبان كل الموديلات مع بعض جنب بعض. */
+.model-dropdown{position:relative;padding:0 8px 6px;width:fit-content}
+.model-dropdown-btn{
+  display:flex;align-items:center;gap:6px;background:var(--bg3);border:1px solid var(--border);
+  border-radius:999px;padding:6px 12px;font-size:12px;color:var(--text);cursor:pointer;
+  transition:all .2s;user-select:none;
+}
+.model-dropdown-btn:hover{border-color:var(--primary3)}
+.model-dropdown.open .model-dropdown-btn{border-color:var(--primary);color:var(--primary3)}
+.model-dropdown-arrow{font-size:10px;color:var(--text3);transition:transform .2s}
+.model-dropdown.open .model-dropdown-arrow{transform:rotate(180deg)}
+.model-dropdown-list{
+  position:absolute;bottom:calc(100% + 8px);right:8px;min-width:200px;z-index:30;
+  background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);
+  box-shadow:0 -6px 24px rgba(0,0,0,.25);padding:6px;
+  opacity:0;pointer-events:none;transform:translateY(6px);transition:all .18s ease;
+}
+.model-dropdown.open .model-dropdown-list{opacity:1;pointer-events:auto;transform:translateY(0)}
+.model-dropdown-item{
+  display:flex;align-items:center;gap:8px;padding:9px 12px;border-radius:8px;font-size:13px;
+  color:var(--text2);cursor:pointer;transition:all .15s;user-select:none;
+}
+.model-dropdown-item:hover{background:var(--bg3);color:var(--text)}
+.model-dropdown-item.active{background:linear-gradient(to left,var(--primary2),var(--purple));color:#fff;font-weight:600}
 /* ===== GENERATED FILE CHIP (AI output as a file, not inline code) ===== */
 .msg-genfile-row{display:flex;align-items:stretch;gap:6px;margin-top:8px;max-width:320px}
 .msg-genfile{display:flex;align-items:center;gap:10px;background:var(--bg3);border:1px solid var(--border);border-radius:12px;padding:10px 12px;cursor:pointer;transition:all .2s;flex:1;min-width:0;margin-top:0}
@@ -434,7 +456,8 @@ header{
   <div class="w-grid"></div>
   <div class="w-content">
     <div class="w-logo"><div class="w-logo-inner"><svg viewBox="0 0 24 24" width="1em" height="1em" xmlns="http://www.w3.org/2000/svg" style="display:block"><defs><linearGradient id="sgIntro" x1="0" y1="0" x2="24" y2="24"><stop offset="0" style="stop-color:var(--primary)"/><stop offset=".5" style="stop-color:var(--purple)"/><stop offset="1" style="stop-color:var(--pink)"/></linearGradient></defs><path fill="url(#sgIntro)" d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.937A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/></svg></div></div>
-    <h1 class="w-title"><span>NovaMind AI</span></h1>
+    <h1 class="w-title"><span>فانيل AI</span></h1>
+    <p class="w-title-sub">VANIL AI</p>
     <p class="w-desc">مساعدك الذكي للبرمجة، الدراسة، تحليل الصور والملفات،<br>والكتابة والإجابة عن جميع أسئلتك</p>
     <div class="w-form">
       <input type="text" class="w-input" id="nameInput" placeholder="ما اسمك؟" maxlength="30" autofocus>
@@ -488,7 +511,7 @@ header{
     <header>
       <div class="h-left">
         <button class="h-toggle" id="sidebarToggle">☰</button>
-        <h1 class="h-title"><span><svg viewBox="0 0 24 24" width="0.85em" height="0.85em" fill="currentColor" xmlns="http://www.w3.org/2000/svg" style="display:inline-block;vertical-align:-0.1em;margin-left:4px"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.937A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/></svg>NovaMind</span></h1>
+        <h1 class="h-title"><span><svg viewBox="0 0 24 24" width="0.85em" height="0.85em" fill="currentColor" xmlns="http://www.w3.org/2000/svg" style="display:inline-block;vertical-align:-0.1em;margin-left:4px"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.937A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/></svg>فانيل AI<span style="direction:ltr;display:inline-block;font-size:.6em;color:var(--text3);font-weight:600;letter-spacing:1px;margin-right:6px;vertical-align:middle">VANIL</span></span></h1>
         <span class="h-kbd" style="display:none">Ctrl+/</span>
       </div>
       <div class="h-right">
@@ -519,10 +542,17 @@ header{
             <textarea class="chat-input-field" id="chatInput" rows="1" placeholder="اكتب رسالتك..." dir="rtl"></textarea>
             <button class="chat-send-btn" id="sendBtn" disabled>➤</button>
           </div>
-          <div class="model-switcher" id="modelSwitcher">
-            <div class="model-pill" data-model="auto" title="يختار تلقائياً حسب الرسالة">🤖 تلقائي</div>
-            <div class="model-pill" data-model="gpt" title="نموذج المحادثة العامة">💬 GPT عام</div>
-            <div class="model-pill" data-model="code" title="نموذج مخصص للبرمجة — يرسل الكود كملف">💻 برمجة</div>
+          <div class="model-dropdown" id="modelDropdown">
+            <button type="button" class="model-dropdown-btn" id="modelDropdownBtn" title="اختيار الموديل">
+              <span id="modelDropdownLabel">🤖 تلقائي</span>
+              <span class="model-dropdown-arrow">▾</span>
+            </button>
+            <div class="model-dropdown-list" id="modelDropdownList">
+              <div class="model-dropdown-item" data-model="auto" title="يختار تلقائياً حسب الرسالة">🤖 تلقائي</div>
+              <div class="model-dropdown-item" data-model="gpt" title="دردشة نصية عامة">💬 GPT عام</div>
+              <div class="model-dropdown-item" data-model="code" title="نموذج برمجة عادي — بيجرب موديل بديل تلقائياً لو الأول مشغول">💻 برمجة</div>
+              <div class="model-dropdown-item" data-model="fastcode" title="نموذج برمجة سريع مخصص — DeepSeek V4 Pro عبر NVIDIA فقط، من غير بدائل">⚡ برمجة_سريع</div>
+            </div>
           </div>
         </div>
       </div>
@@ -599,7 +629,8 @@ header{
 // الـ Worker بس، مش هنا.
 // =====================================================================
 const CONFIG={
-  siteName:'NovaMind AI',
+  siteName:'فانيل AI',
+  siteNameEn:'Vanil AI',
   developer:'Mahmoud Ahmed Saeed',
   maxFileSize:20*1024*1024, // 20MB
   // رابط الـ Worker الموحّد (proxy) اللي بيغطي Groq وOpenRouter وNVIDIA الثلاثة.
@@ -609,12 +640,13 @@ const CONFIG={
   // النظام يجرب اللي بعده تلقائياً بدل ما يفشل الطلب بالكامل.
   models:{
     general:['openai/gpt-oss-120b','llama-3.3-70b-versatile','llama-3.1-8b-instant'], // عبر Groq
-    // z-ai/glm-5.2 عبر NVIDIA هو الموديل الأساسي، والباقي بدائل احتياطية عبر OpenRouter لو فشل.
-    // تنبيه: قايمة الموديلات المجانية على OpenRouter بتتغيّر باستمرار (موديل ممكن يفقد
-    // وسم :free فجأة)، فكل ما نزوّد عدد البدائل هنا كل ما قلّت فرصة إن كل الموديلات
-    // تفشل مع بعض في نفس اللحظة. راجع openrouter.ai/models?fmt=cards&supported_parameters=tools
-    // بشكل دوري لتحديث القايمة لو موديل اتشال من الفري تير.
+    // برمجة_سريع: موديل واحد بس (مفيش بدائل ومفيش دمج مع موديلات تانية) — deepseek-ai/deepseek-v4-pro
+    // عبر NVIDIA build.nvidia.com. المستخدم لما يختاره من القايمة المنسدلة، بيتنادى هو بس مباشرة.
+    // برمجة: سلسلة بدائل (لو موديل فشل يجرب اللي بعده)، مش دمج ولا استدعاء متوازي — نفس فكرة
+    // "general" بالظبط لكن بموديلات مخصصة للكود. منفصلة تماماً عن برمجة_سريع تحت.
     code:['z-ai/glm-5.2','cohere/north-mini-code:free','qwen/qwen3-coder:free','openai/gpt-oss-120b:free','deepseek/deepseek-r1-distill:free','meta-llama/llama-3.3-70b-instruct:free'],
+    // برمجة_سريع: موديل واحد بس تحديداً، deepseek-ai/deepseek-v4-pro عبر NVIDIA، مفيش بدائل خالص
+    fastcode:['deepseek-ai/deepseek-v4-pro'],
     vision:['google/gemma-4-31b-it:free','meta-llama/llama-3.2-11b-vision-instruct:free','qwen/qwen2.5-vl-32b-instruct:free'] // عبر OpenRouter
   }
 };
@@ -623,12 +655,23 @@ const CONFIG={
 // apiKeys:[''] لكل الحالات لأن المفتاح الحقيقي دلوقتي سيرفر-سايد بالكامل جوه الـ Worker،
 // مش محتاجين المتصفح يبعت أو حتى يعرف أي مفتاح.
 function getProviderFor(kind,model){
-  if(model==='z-ai/glm-5.2')return{endpoint:`${CONFIG.proxyUrl}/nvidia`,apiKeys:['']};
-  if(kind==='code')return{endpoint:`${CONFIG.proxyUrl}/openrouter`,apiKeys:['']};
+  if(model==='z-ai/glm-5.2'||model==='deepseek-ai/deepseek-v4-pro')return{endpoint:`${CONFIG.proxyUrl}/nvidia`,apiKeys:['']};
+  if(kind==='code'||kind==='vision')return{endpoint:`${CONFIG.proxyUrl}/openrouter`,apiKeys:['']};
   return{endpoint:`${CONFIG.proxyUrl}/groq`,apiKeys:['']};
+}
+// بعض الموديلات محتاجة باراميترات إضافية في الـ body غير القياسي عشان تشتغل صح.
+// deepseek-ai/deepseek-v4-pro تحديداً: من غير extra_body.chat_template_kwargs.thinking=false
+// الموديل بيدخل في وضع "تفكير" ممتد والطلب بيفضل معلّق من غير أي رد يوصل خالص (باگ موثّق
+// في NVIDIA NIM لعائلة deepseek-v4) — top_p:0.95 هو الموصى بيه رسمياً في مثال NVIDIA نفسه.
+function getExtraParamsFor(model){
+  if(model==='deepseek-ai/deepseek-v4-pro'){
+    return{top_p:0.95,extra_body:{chat_template_kwargs:{thinking:false}}};
+  }
+  return{};
 }
 // أسماء قديمة لسه مستخدمة في أماكن تانية بالكود، سايبها عشان التوافق
 const SITE_NAME=CONFIG.siteName;
+const SITE_NAME_EN=CONFIG.siteNameEn;
 const MAX_FILE_SIZE=CONFIG.maxFileSize;
 const ALLOWED_TYPES=['application/pdf','application/msword','application/vnd.openxmlformats-officedocument.wordprocessingml.document','application/vnd.ms-excel','application/vnd.openxmlformats-officedocument.spreadsheetml.sheet','text/csv','text/plain','application/json','application/zip','application/x-zip-compressed','image/png','image/jpeg','image/webp','image/gif'];
 const TEXT_EXTENSIONS=['txt','md','markdown','json','csv','tsv','xml','yaml','yml','ini','cfg','conf','env','log','py','js','jsx','mjs','cjs','ts','tsx','java','c','h','hpp','cpp','cc','cs','go','rs','rb','php','pl','sh','bash','zsh','ps1','sql','html','htm','css','scss','sass','less','vue','svelte','swift','kt','kts','dart','r','m','lua','scala','groovy','gradle','makefile','dockerfile','toml','graphql','proto','vb','asm','bat','cmd','gitignore','editorconfig'];
@@ -681,7 +724,7 @@ const nameInput=$('nameInput'),startBtn=$('startBtn'),welcome=$('welcome'),app=$
 const sidebar=$('sidebar'),sidebarToggle=$('sidebarToggle'),sidebarClose=$('sidebarClose'),sidebarUser=$('sidebarUser');
 const chatList=$('chatList'),searchChats=$('searchChats'),newChatBtn=$('newChatBtn'),logoutBtn=$('logoutBtn');
 const chatMessages=$('chatMessages'),chatInput=$('chatInput'),sendBtn=$('sendBtn'),themeToggle=$('themeToggle'),attachPreview=$('attachPreview');
-const modelSwitcher=$('modelSwitcher');
+const modelDropdown=$('modelDropdown'),modelDropdownBtn=$('modelDropdownBtn'),modelDropdownLabel=$('modelDropdownLabel'),modelDropdownList=$('modelDropdownList');
 const editBar=$('editBar'),editCancel=$('editCancel');
 const fileBtn=$('fileBtn'),imageBtn=$('imageBtn');
 const uploadOverlay=$('uploadOverlay'),uploadModal=$('uploadModal'),uploadClose=$('uploadClose'),uploadCancel=$('uploadCancel'),uploadConfirm=$('uploadConfirm');
@@ -762,7 +805,7 @@ async function callModelWithFallback(kind,body,{stream=false,timeoutMs=FETCH_TIM
         const res=await fetchWithTimeout(endpoint,{
           method:'POST',
           headers:{'Content-Type':'application/json','Authorization':`Bearer ${apiKey}`},
-          body:JSON.stringify({...body,model})
+          body:JSON.stringify({...body,...getExtraParamsFor(model),model})
         },timeoutMs);
         if(res.ok)return{res,modelUsed:model};
         if(RETRYABLE_STATUS.includes(res.status)&&!isLastCombo){
@@ -812,7 +855,7 @@ async function streamModelWithFallback(kind,body,onToken,timeoutMs=FETCH_TIMEOUT
       try{
         const res=await fetch(endpoint,{
           method:'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${apiKey}`},
-          body:JSON.stringify({...body,model,stream:true}),
+          body:JSON.stringify({...body,...getExtraParamsFor(model),model,stream:true}),
           signal:streamController.signal
         });
         if(!res.ok){
@@ -854,84 +897,10 @@ async function streamModelWithFallback(kind,body,onToken,timeoutMs=FETCH_TIMEOUT
   throw lastErr||new Error('كل الموديلات والمفاتيح فشلت');
 }
 
-// ===== وضع البرمجة التعاوني: كل موديلات CONFIG.models.code + gemma تشتغل مع بعض =====
-// الفكرة: بدل ما نعتمد على موديل واحد بس (أو موديلين)، نبعت نفس الطلب لكل الموديلات
-// الموجودة في قايمة models.code مع gemma في نفس الوقت (parallel)، وبعدين نبعت كل
-// المسودات الناجحة لموديل تالت يدمجهم في رد نهائي واحد أقوى (أدق وأكمل من أي رد لوحده).
-// لو موديل فشل، بتتجاهل مسودته وتكمل بالباقي من غير ما توقف الطلب بالكامل.
-
-// نداء مباشر لموديل محدد بالاسم (بيحدد المزوّد الصح للموديل ده تلقائياً — OpenRouter
-// عادةً، أو NVIDIA لو الموديل z-ai/glm-5.2 — وبيجرب كل المفاتيح الاحتياطية المتاحة لنفس الموديل)
-async function callSpecificCodeModel(model,body,timeoutMs=FETCH_TIMEOUT_MS){
-  const{endpoint,apiKeys}=getProviderFor('code',model);
-  let lastErr=null;
-  for(let k=0;k<apiKeys.length;k++){
-    try{
-      const res=await fetchWithTimeout(endpoint,{
-        method:'POST',
-        headers:{'Content-Type':'application/json','Authorization':`Bearer ${apiKeys[k]}`},
-        body:JSON.stringify({...body,model,stream:false})
-      },timeoutMs);
-      if(res.ok){
-        const data=await res.json();
-        return data.choices?.[0]?.message?.content||'';
-      }
-      if(RETRYABLE_STATUS.includes(res.status)&&k<apiKeys.length-1){
-        lastErr=new Error(`${model} (مفتاح ${k+1}) رجع ${res.status}، بجرب المفتاح اللي بعده...`);
-        continue;
-      }
-      const errText=await res.text();throw new Error(`${model} خطأ ${res.status}: ${errText}`);
-    }catch(e){
-      // باگ كان هنا: e.name==='AbortError' (تايم آوت المهلة) كان بيتلقّف من غير ترجمة،
-      // فكانت رسالة الخطأ الخام بتوصل للمستخدم زي ما هي ("signal is aborted without reason")
-      // بدل رسالة مفهومة — بينما الدوال التانية (callModelWithFallback و streamModelWithFallback)
-      // كانت بتترجمها. هنا بقى نفس المنطق عشان وضع البرمجة التعاوني (اللي بيستخدم الدالة دي)
-      // يوريك رسالة واضحة بدل ما "تسرّب" رسالة الـ DOMException الخام.
-      if(e.name==='AbortError'&&globalUserAbort?.signal.aborted)throw new Error(STOP_ERROR);
-      lastErr=e.name==='AbortError'?new Error(`${model} (مفتاح ${k+1}) ما ردش خلال ${timeoutMs/1000} ثانية، بجرب البديل...`):e;
-      if(k===apiKeys.length-1)throw lastErr;
-    }
-  }
-  throw lastErr||new Error(`${model} فشل بكل المفاتيح المتاحة`);
-}
-
-// نداء مباشر لـ gemma عبر OpenRouter (مش جزء من قايمة models.code، لكنه بيشارك في التعاون برضه)
-async function callGemmaDirect(body,timeoutMs=FETCH_TIMEOUT_MS){
-  return callSpecificCodeModel('google/gemma-4-31b-it:free',body,timeoutMs);
-}
-
-// المنسّق: يشغّل كل موديلات البرمجة الموجودة في CONFIG.models.code + gemma مع بعض بالتوازي،
-// وبعدين يدمج كل المسودات الناجحة في رد نهائي واحد (streaming)
-async function getCollaborativeCodeResponse(apiMsgs,maxTokens,onToken,timeoutMs=FETCH_TIMEOUT_MS){
-  const body={messages:apiMsgs,temperature:0.7,max_tokens:maxTokens,top_p:1};
-  const codeModels=CONFIG.models.code;
-  const calls=[
-    ...codeModels.map(model=>callSpecificCodeModel(model,body,timeoutMs).then(text=>({model,text}))),
-    callGemmaDirect(body,timeoutMs).then(text=>({model:'google/gemma-4-31b-it:free',text}))
-  ];
-  const results=await Promise.allSettled(calls);
-  const drafts=results.filter(r=>r.status==='fulfilled'&&r.value.text&&r.value.text.trim()).map(r=>r.value);
-
-  if(!drafts.length){
-    const firstErr=results.find(r=>r.status==='rejected');
-    throw firstErr?.reason||new Error('كل موديلات البرمجة فشلت معاً');
-  }
-  if(drafts.length===1){
-    onToken(drafts[0].text);
-    return{full:drafts[0].text,modelUsed:drafts[0].model};
-  }
-
-  // أكتر من موديل نجح: ندمجهم كلهم في رد نهائي واحد عبر سلسلة fallback الموديلات (streaming
-  // عشان يترضى بالكتابة الحية للمستخدم بدل ما يستنى الدمج كامل من غير أي مؤشر تقدم)
-  const draftsBlock=drafts.map((d,i)=>`--- مسودة ${i+1} (من ${d.model}) ---\n${d.text}`).join('\n\n');
-  const mergeMsg={role:'user',content:`لديك ${drafts.length} مسودات لنفس المهمة من نماذج مختلفة. ادمجهم في رد نهائي واحد أقوى يجمع أفضل ما في كل المسودات (الدقة، اكتمال الكود، جودة الشرح، الالتزام الحرفي بطلب المستخدم)، والتزم بنفس قواعد إخراج الملف الكامل المذكورة في تعليمات النظام. لو المسودات متعارضة في حل معين، اختر الأصح تقنياً بناءً على خبرتك، ولا تخلط بين حلول متضاربة في نفس الملف. لا تذكر أنك دمجت عدة مسودات ولا تعلّق على عملية الدمج نفسها — اكتب الرد النهائي المدمج مباشرة فقط.
-
-${draftsBlock}`};
-  const{full}=await streamModelWithFallback('code',{
-    messages:[...apiMsgs,mergeMsg],temperature:0.4,max_tokens:maxTokens,top_p:1
-  },onToken,timeoutMs);
-  return{full,modelUsed:`merged(${drafts.map(d=>d.model).join('+')})`};
-}
+// ملحوظة: كان هنا نظام "تعاوني" بيشغّل عدة موديلات مع بعض بالتوازي على نفس الطلب
+// وبعدين يدمج ردودهم في رد واحد. اتشال بالكامل بناءً على طلب صريح: موديل واحد بس
+// (برمجة_سريع = deepseek-ai/deepseek-v4-pro) بيشتغل دلوقتي لوضع البرمجة، من غير
+// أي استدعاء متوازي أو دمج مع موديلات تانية — شوف getExtraParamsFor و CONFIG.models.fastcode فوق.
 
 // ===== TOAST =====
 let toastTimer;
@@ -1228,7 +1197,7 @@ function isEditIntent(text){
   return kw.some(k=>t.includes(k.toLowerCase()));
 }
 // يحدد الجزء الأنسب من الملف الكبير (محلياً بالكلمات المفتاحية، وبمساعدة الموديل لو محتاج)، يعدله، ويدمجه في الملف الكامل محلياً
-async function performTargetedFileEdit(userText,file,apiUrl,apiKey,apiModel){
+async function performTargetedFileEdit(userText,file,codeKind='code'){
   const lines=file.content.split('\n');
   const totalLines=lines.length;
   // حجم القطعة يتكيف مع حجم الملف: ملفات ضخمة (لحد 50 ألف سطر) تتقسم لقطع
@@ -1251,7 +1220,7 @@ async function performTargetedFileEdit(userText,file,apiUrl,apiKey,apiModel){
     const shortlisted=candidateIdxs.slice(0,8);
     const outline=shortlisted.map(i=>`قطعة ${i+1} (من سطر ${chunks[i].start} إلى ${chunks[i].end}):\n${chunks[i].content.split('\n').slice(0,3).join('\n')}`).join('\n---\n');
     try{
-      const{res:locRes}=await callModelWithFallback('code',{
+      const{res:locRes}=await callModelWithFallback(codeKind,{
         temperature:0,max_tokens:20,stream:false,messages:[
           {role:'system',content:'أنت أداة تحديد موقع كود داخل ملف كبير. سأعطيك مقتطفات من عدة قطع من الملف، ورد فقط برقم القطعة الأنسب لتنفيذ طلب المستخدم، بدون أي كلام إضافي.'},
           {role:'user',content:`طلب المستخدم: ${userText}\n\nالقطع المرشحة:\n${outline}\n\nرد برقم القطعة فقط.`}
@@ -1283,7 +1252,7 @@ async function performTargetedFileEdit(userText,file,apiUrl,apiKey,apiModel){
   state.streamingContent=`📍 لقيت الجزء المحتمل حوالي السطر ${target.start}، شكله كده:\n\`\`\`\n${preview}${previewLines.length>6?'\n...':''}\n\`\`\`\nجاري التعديل الآن...`;
   renderStreamingMsg();
 
-  const{res:editRes}=await callModelWithFallback('code',{
+  const{res:editRes}=await callModelWithFallback(codeKind,{
     temperature:0.4,max_tokens:9000,stream:false,messages:[
       {role:'system',content:`أنت مهندس برمجيات خبير. هذا جزء من ملف أكبر اسمه "${file.name}" (من السطر ${target.start} إلى ${target.end} من إجمالي ${lines.length} سطر). افهم منطق هذا الجزء وعلاقته بالطلب قبل التعديل، وحدد السبب الجذري لو فيه مشكلة، ثم عدّل هذا الجزء فقط بناءً على طلب المستخدم. اكتب جملة قصيرة قبل الكود توضح ماذا لاحظت ووين بالظبط الجزء المطلوب تعديله، ثم بلوك كود واحد فيه الجزء بعد التعديل كاملاً (شامل أي سطر لم يتغيّر داخل هذا الجزء تحديداً)، ثم جملة قصيرة بعد الكود توضح ماذا عدّلت بالضبط ولو فيه نصيحة إضافية مفيدة. لا تكتب الملف كله، فقط هذا الجزء.`},
       {role:'user',content:`الجزء (من سطر ${target.start} إلى ${target.end}):\n\`\`\`\n${target.content}\n\`\`\`\n\nطلب المستخدم: ${userText}`}
@@ -1480,18 +1449,21 @@ async function doSend(content,files,images,isCall=false){
       userMsg.imageDescriptions=await analyzeImages(images);
       saveState();
     }
-    // اختيار النموذج: لو المستخدم اختار نموذجاً بنفسه من المُبدّل، نلتزم به ولا نستخدم أي نموذج آخر.
-    // فقط في وضع "تلقائي" نكتشف نوع الطلب (برمجة أو عام) بأنفسنا.
-    const useCodeModel = state.selectedModel==='code' ? true
-                        : state.selectedModel==='gpt' ? false
-                        : (isCodingRequest(content)||hasCodeFile(files));
+    // اختيار النموذج: لو المستخدم اختار نموذجاً بنفسه من الدروب داون، نلتزم به ولا نستخدم أي نموذج آخر.
+    // فقط في وضع "تلقائي" نكتشف نوع الطلب (برمجة أو عام) بأنفسنا (وهنا بيميل لـ"code" العادي
+    // بدائله، مش برمجة_سريع اللي المستخدم لازم يختارها بنفسه بالاسم عشان تتفعّل).
+    const codeKind = state.selectedModel==='fastcode' ? 'fastcode'
+                    : state.selectedModel==='code' ? 'code'
+                    : state.selectedModel==='gpt' ? null
+                    : (isCodingRequest(content)||hasCodeFile(files)) ? 'code' : null;
+    const useCodeModel = !!codeKind;
 
     // لملفات الكود الكبيرة: بدل ما نبعت الملف كامل للموديل (وهو غالباً هيقصّه أو يبعت جزء بس)،
     // نحدد الجزء المطلوب تعديله بحثاً محلياً + مساعدة الموديل، نعدله وحده، وندمجه في الملف الأصلي كامل هنا في المتصفح.
     const singleTextFile=(files.length===1&&files[0].isText)?files[0]:null;
     if(useCodeModel&&singleTextFile&&isEditIntent(content)){
       try{
-        const result=await performTargetedFileEdit(content,singleTextFile,null,null,null);
+        const result=await performTargetedFileEdit(content,singleTextFile,codeKind);
         if(result){
           const aiMsg={id:genId(),role:'assistant',content:result.narration,timestamp:Date.now(),genFiles:[result.genFile]};
           state.messages.push(aiMsg);updateConv();state.streamingContent='';renderMessages();saveState();
@@ -1536,10 +1508,10 @@ async function doSend(content,files,images,isCall=false){
 - ممنوع نهائيًا أي إيموجي، ممنوع أي ماركداون (نجوم، عناوين، خط تحت)، وممنوع بلوكات الكود — لو المستخدم محتاج كود فعلاً، قوله بصوتك إنه هيلاقيه مكتوب في الشات العادي بعد المكالمة، ومتحاولش تنطق كود بالتفصيل.
 - خليك ذكي ومفوّه: جاوب بثقة ومباشرة، لكن بإحساس إنسان بيسمعك فعلاً مش بوت بيقرا سكريبت.`;
 
-    const sysPrompt=`أنت ${SITE_NAME}، مساعد ذكاء اصطناعي متطور. اسمك ${SITE_NAME} وليس ChatGPT أو Claude أو Gemini أو أي مساعد آخر.
+    const sysPrompt=`أنت ${SITE_NAME}، مساعد ذكاء اصطناعي متطور. اسمك ${SITE_NAME} (بالإنجليزي: ${SITE_NAME_EN}) وليس ChatGPT أو Claude أو Gemini أو أي مساعد آخر.
 
 معلومات عنك:
-- اسمك: ${SITE_NAME}
+- اسمك: ${SITE_NAME} — بالإنجليزي: ${SITE_NAME_EN}
 - مطورك: Mahmoud Ahmed Saeed
 - مهمتك: مساعدة المستخدم في البرمجة (فهم الأكواد، تشخيص المشاكل، إصلاح الأخطاء، اقتراح تحسينات، وإعطاء نصائح هندسية حقيقية)، الدراسة، تحليل الصور والملفات، الكتابة، والإجابة عن مختلف الأسئلة
 
@@ -1587,15 +1559,17 @@ ${useCodeModel?codeFilePrompt:`
     const onPartial=(partial)=>{if(partial&&chatMessages.querySelector('.typing'))showTyping(false);state.streamingContent=partial;renderStreamingMsg()};
     let full;
     if(useCodeModel){
-      // وضع البرمجة: gemma + الموديل الأساسي بتاع الكود يشتغلوا مع بعض بالتوازي على نفس الطلب،
-      // وبعدين يتدمجوا في رد نهائي واحد أقوى (شوف getCollaborativeCodeResponse فوق)
-      // بنعرض حالة حقيقية بدل نقاط عايمة صامتة — بيوصف فعلاً اللي بيحصل (تحليل ثم كتابة ثم دمج)
-      // بدل ما يظهر الرد فجأة وكأنه جاهز مسبقاً.
+      // برمجة أو برمجة_سريع (حسب codeKind): نداء مباشر لموديل واحد بس من القايمة المختارة —
+      // مفيش دمج ولا استدعاء متوازي لموديلات تانية زي ما كان بيحصل قبل كده (شوف الملاحظة
+      // فوق مكان getCollaborativeCodeResponse القديمة). نفس منطق الـ fallback/streaming
+      // العادي (streamModelWithFallback) بيتطبّق هنا زي أي موديل تاني.
       setStatus(files.length?'جاري تحليل الملف المرفوع...':'جاري تحليل طلبك...');
       await new Promise(r=>setTimeout(r,500));
       setStatus('جاري إنشاء الكود الآن...');
-      const{full:collabFull}=await getCollaborativeCodeResponse(apiMsgs,16000,onPartial,timeoutMs);
-      full=collabFull;
+      const{full:fastFull}=await streamModelWithFallback(codeKind,{
+        messages:apiMsgs,temperature:0.4,max_tokens:16000
+      },onPartial,timeoutMs);
+      full=fastFull;
     }else{
       const{full:streamedFull}=await streamModelWithFallback('general',{
         messages:apiMsgs,temperature:0.7,max_tokens:4096,top_p:1
@@ -1612,8 +1586,8 @@ ${useCodeModel?codeFilePrompt:`
         if(looksIncomplete(singleTextFile.content,editedCode)){
           try{
             const retryMsgs=[...apiMsgs,{role:'assistant',content:full},{role:'user',content:'الرد اللي رجعته مش الملف كاملاً، فيه جزء ناقص أو مختصر. أرسل الملف كاملاً من أول سطر لآخر سطر بعد التعديل داخل بلوك كود واحد فقط، ابدأ به مباشرة قبل أي شرح، ولا تحذف أو تختصر أي جزء من الملف الأصلي لم يتغيّر.'}];
-            const{res:retryRes}=await callModelWithFallback('code',{
-              messages:retryMsgs,temperature:0.2,max_tokens:16000,top_p:1,stream:false
+            const{res:retryRes}=await callModelWithFallback(codeKind,{
+              messages:retryMsgs,temperature:0.2,max_tokens:16000,stream:false
             },{timeoutMs});
             {
               const retryData=await retryRes.json();
@@ -1754,19 +1728,32 @@ window.addEventListener('resize',()=>{
   if(!isMobile())closeMobileSheet();
 });
 
-// ===== MODEL SWITCHER =====
+// ===== MODEL DROPDOWN =====
+// موديل واحد بس مختار وظاهر في كل لحظة (في الزرار)، وضغطة على السهم بتفتح قايمة
+// تختار منها بدل ما تبان كل الموديلات جنب بعض زي المبدّل القديم.
+const MODEL_BTN_LABELS={auto:'🤖 تلقائي',gpt:'💬 GPT عام',code:'💻 برمجة',fastcode:'⚡ برمجة_سريع'};
 function renderModelSwitcher(){
-  modelSwitcher.querySelectorAll('.model-pill').forEach(p=>{
-    p.classList.toggle('active',p.dataset.model===state.selectedModel);
+  modelDropdownLabel.textContent=MODEL_BTN_LABELS[state.selectedModel]||MODEL_BTN_LABELS.auto;
+  modelDropdownList.querySelectorAll('.model-dropdown-item').forEach(it=>{
+    it.classList.toggle('active',it.dataset.model===state.selectedModel);
   });
 }
-modelSwitcher.querySelectorAll('.model-pill').forEach(p=>{
-  p.addEventListener('click',()=>{
-    state.selectedModel=p.dataset.model;
+modelDropdownBtn.addEventListener('click',(e)=>{
+  e.stopPropagation();
+  modelDropdown.classList.toggle('open');
+});
+modelDropdownList.querySelectorAll('.model-dropdown-item').forEach(it=>{
+  it.addEventListener('click',()=>{
+    state.selectedModel=it.dataset.model;
     renderModelSwitcher();saveState();
-    const labels={auto:'الوضع التلقائي',gpt:'GPT العام',code:'نموذج البرمجة'};
+    modelDropdown.classList.remove('open');
+    const labels={auto:'الوضع التلقائي',gpt:'GPT العام',code:'برمجة',fastcode:'برمجة_سريع (DeepSeek V4 Pro)'};
     showToast(`تم التحويل إلى ${labels[state.selectedModel]}`);
   });
+});
+// قفل القائمة لو المستخدم ضغط في أي حتة تانية بره الدروب داون
+document.addEventListener('click',(e)=>{
+  if(!modelDropdown.contains(e.target))modelDropdown.classList.remove('open');
 });
 
 // ===== المكالمة الصوتية =====
