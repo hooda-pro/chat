@@ -741,14 +741,14 @@ async function streamModelWithFallback(kind,body,onToken){
   throw lastErr||new Error('كل الموديلات والمفاتيح فشلت');
 }
 
-// ===== وضع البرمجة التعاوني: google/gemma-4-31b-it:free + الموديل الأساسي بتاع الكود =====
-// الفكرة: بدل ما نعتمد على موديل واحد بس، نبعت نفس الطلب لموديلين مختلفين في نفس
-// الوقت (parallel)، وبعدين نبعت الرَدّين لموديل تالت يدمجهم في رد نهائي واحد أقوى
-// (أدق وأكمل من أي رد لوحده). لو موديل من الاتنين فشل، نستخدم رد التاني مباشرة
-// من غير دمج بدل ما نوقف الطلب بالكامل.
+// ===== وضع البرمجة التعاوني: كل موديلات CONFIG.models.code + gemma تشتغل مع بعض =====
+// الفكرة: بدل ما نعتمد على موديل واحد بس (أو موديلين)، نبعت نفس الطلب لكل الموديلات
+// الموجودة في قايمة models.code مع gemma في نفس الوقت (parallel)، وبعدين نبعت كل
+// المسودات الناجحة لموديل تالت يدمجهم في رد نهائي واحد أقوى (أدق وأكمل من أي رد لوحده).
+// لو موديل فشل، بتتجاهل مسودته وتكمل بالباقي من غير ما توقف الطلب بالكامل.
 
-// نداء مباشر لـ gemma عبر OpenRouter (مش جزء من قايمة fallback العادية بتاعة الكود)
-async function callGemmaDirect(body){
+// نداء مباشر لموديل محدد بالاسم عبر OpenRouter (بيجرب كل المفاتيح الاحتياطية على نفس الموديل ده)
+async function callSpecificCodeModel(model,body){
   const apiKeys=CONFIG.openrouterApiKeys;
   let lastErr=null;
   for(let k=0;k<apiKeys.length;k++){
@@ -756,63 +756,58 @@ async function callGemmaDirect(body){
       const res=await fetch(CONFIG.endpoints.openrouter,{
         method:'POST',
         headers:{'Content-Type':'application/json','Authorization':`Bearer ${apiKeys[k]}`},
-        body:JSON.stringify({...body,model:'google/gemma-4-31b-it:free',stream:false})
+        body:JSON.stringify({...body,model,stream:false})
       });
       if(res.ok){
         const data=await res.json();
         return data.choices?.[0]?.message?.content||'';
       }
       if([401,403,404,429,500,502,503].includes(res.status)&&k<apiKeys.length-1){
-        lastErr=new Error(`gemma (مفتاح ${k+1}) رجع ${res.status}، بجرب المفتاح اللي بعده...`);
+        lastErr=new Error(`${model} (مفتاح ${k+1}) رجع ${res.status}، بجرب المفتاح اللي بعده...`);
         continue;
       }
-      const errText=await res.text();throw new Error(`gemma خطأ ${res.status}: ${errText}`);
+      const errText=await res.text();throw new Error(`${model} خطأ ${res.status}: ${errText}`);
     }catch(e){lastErr=e;if(k===apiKeys.length-1)throw lastErr}
   }
-  throw lastErr||new Error('gemma فشل بكل المفاتيح المتاحة');
+  throw lastErr||new Error(`${model} فشل بكل المفاتيح المتاحة`);
 }
 
-// نداء غير-streaming للموديل الأساسي بتاع الكود (نفس قايمة fallback الموجودة)
-async function callPrimaryCodeModel(body){
-  const{res,modelUsed}=await callModelWithFallback('code',{...body,stream:false});
-  const data=await res.json();
-  return{text:data.choices?.[0]?.message?.content||'',modelUsed};
+// نداء مباشر لـ gemma عبر OpenRouter (مش جزء من قايمة models.code، لكنه بيشارك في التعاون برضه)
+async function callGemmaDirect(body){
+  return callSpecificCodeModel('google/gemma-4-31b-it:free',body);
 }
 
-// المنسّق: يشغل الموديلين مع بعض بالتوازي، وبعدين يدمج الردين برد نهائي واحد (streaming)
+// المنسّق: يشغّل كل موديلات البرمجة الموجودة في CONFIG.models.code + gemma مع بعض بالتوازي،
+// وبعدين يدمج كل المسودات الناجحة في رد نهائي واحد (streaming)
 async function getCollaborativeCodeResponse(apiMsgs,maxTokens,onToken){
   const body={messages:apiMsgs,temperature:0.7,max_tokens:maxTokens,top_p:1};
-  const[primaryResult,gemmaResult]=await Promise.allSettled([
-    callPrimaryCodeModel(body),
-    callGemmaDirect(body)
-  ]);
-  const primaryOk=primaryResult.status==='fulfilled';
-  const gemmaOk=gemmaResult.status==='fulfilled';
+  const codeModels=CONFIG.models.code;
+  const calls=[
+    ...codeModels.map(model=>callSpecificCodeModel(model,body).then(text=>({model,text}))),
+    callGemmaDirect(body).then(text=>({model:'google/gemma-4-31b-it:free',text}))
+  ];
+  const results=await Promise.allSettled(calls);
+  const drafts=results.filter(r=>r.status==='fulfilled'&&r.value.text&&r.value.text.trim()).map(r=>r.value);
 
-  if(!primaryOk&&!gemmaOk){
-    throw primaryResult.reason||gemmaResult.reason||new Error('فشل موديل البرمجة الأساسي وgemma معاً');
+  if(!drafts.length){
+    const firstErr=results.find(r=>r.status==='rejected');
+    throw firstErr?.reason||new Error('كل موديلات البرمجة فشلت معاً');
   }
-  if(primaryOk&&!gemmaOk){
-    onToken(primaryResult.value.text);
-    return{full:primaryResult.value.text,modelUsed:primaryResult.value.modelUsed};
-  }
-  if(!primaryOk&&gemmaOk){
-    onToken(gemmaResult.value);
-    return{full:gemmaResult.value,modelUsed:'google/gemma-4-31b-it:free'};
+  if(drafts.length===1){
+    onToken(drafts[0].text);
+    return{full:drafts[0].text,modelUsed:drafts[0].model};
   }
 
-  // الاتنين نجحوا: ندمجهم برد نهائي واحد عبر نفس سلسلة موديلات الكود (streaming عشان يترضى بالكتابة الحية للمستخدم)
-  const mergeMsg={role:'user',content:`لديك مسودتان لنفس المهمة من نموذجين مختلفين. ادمجهما في رد نهائي واحد أقوى يجمع أفضل ما في الاثنين (الدقة، اكتمال الكود، جودة الشرح)، والتزم بنفس قواعد إخراج الملف الكامل المذكورة في تعليمات النظام. لا تذكر أنك دمجت مسودتين ولا تعلّق على عملية الدمج نفسها — اكتب الرد النهائي المدمج مباشرة فقط.
+  // أكتر من موديل نجح: ندمجهم كلهم في رد نهائي واحد عبر سلسلة fallback الموديلات (streaming
+  // عشان يترضى بالكتابة الحية للمستخدم بدل ما يستنى الدمج كامل من غير أي مؤشر تقدم)
+  const draftsBlock=drafts.map((d,i)=>`--- مسودة ${i+1} (من ${d.model}) ---\n${d.text}`).join('\n\n');
+  const mergeMsg={role:'user',content:`لديك ${drafts.length} مسودات لنفس المهمة من نماذج مختلفة. ادمجهم في رد نهائي واحد أقوى يجمع أفضل ما في كل المسودات (الدقة، اكتمال الكود، جودة الشرح، الالتزام الحرفي بطلب المستخدم)، والتزم بنفس قواعد إخراج الملف الكامل المذكورة في تعليمات النظام. لو المسودات متعارضة في حل معين، اختر الأصح تقنياً بناءً على خبرتك، ولا تخلط بين حلول متضاربة في نفس الملف. لا تذكر أنك دمجت عدة مسودات ولا تعلّق على عملية الدمج نفسها — اكتب الرد النهائي المدمج مباشرة فقط.
 
---- المسودة الأولى ---
-${primaryResult.value.text}
-
---- المسودة الثانية ---
-${gemmaResult.value}`};
+${draftsBlock}`};
   const{full}=await streamModelWithFallback('code',{
     messages:[...apiMsgs,mergeMsg],temperature:0.4,max_tokens:maxTokens,top_p:1
   },onToken);
-  return{full,modelUsed:'merged(primary+gemma)'};
+  return{full,modelUsed:`merged(${drafts.map(d=>d.model).join('+')})`};
 }
 
 // ===== TOAST =====
