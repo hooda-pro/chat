@@ -574,18 +574,31 @@ const CONFIG={
     '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',
     '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'
   ],
+  // مفتاح NVIDIA (build.nvidia.com / integrate.api.nvidia.com) — بيُستخدم خصيصاً
+  // لموديل z-ai/glm-5.2 اللي بقى الموديل الأساسي لوضع الكود بدل nemotron-ultra
+  nvidiaApiKey:'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',
   // موديلات مع بدائل احتياطية: لو موديل رئيسي اتلغى أو رجع خطأ 404/429،
   // النظام يجرب اللي بعده تلقائياً بدل ما يفشل الطلب بالكامل.
   models:{
     general:['openai/gpt-oss-120b','llama-3.3-70b-versatile','llama-3.1-8b-instant'], // عبر Groq
-    code:['nvidia/nemotron-3-ultra-550b-a55b:free','cohere/north-mini-code:free','qwen/qwen3-coder:free','openai/gpt-oss-120b:free','meta-llama/llama-3.3-70b-instruct:free'], // عبر OpenRouter — nemotron هو الموديل الأساسي، والباقي بدائل احتياطية لو فشل
+    code:['z-ai/glm-5.2','cohere/north-mini-code:free','qwen/qwen3-coder:free','openai/gpt-oss-120b:free','meta-llama/llama-3.3-70b-instruct:free'], // z-ai/glm-5.2 عبر NVIDIA هو الموديل الأساسي، والباقي بدائل احتياطية عبر OpenRouter لو فشل
     vision:['google/gemma-4-31b-it:free','meta-llama/llama-3.2-11b-vision-instruct:free','qwen/qwen2.5-vl-32b-instruct:free'] // عبر OpenRouter
   },
   endpoints:{
     groq:'https://api.groq.com/openai/v1/chat/completions',
-    openrouter:'https://openrouter.ai/api/v1/chat/completions'
+    openrouter:'https://openrouter.ai/api/v1/chat/completions',
+    nvidia:'https://integrate.api.nvidia.com/v1/chat/completions'
   }
 };
+// خريطة: بيرجع الـ endpoint ومفاتيح الـ API الصح لموديل معيّن. النظام القديم كان
+// بيفترض إن كل موديلات "kind" واحد بتمشي عبر نفس الـ endpoint، لكن z-ai/glm-5.2
+// بيتنادى عبر NVIDIA (endpoint ومفتاح مختلفين تماماً) بينما باقي موديلات الكود
+// لسه بتمشي عبر OpenRouter — فبقينا محتاجين نحدد المزوّد بالموديل نفسه مش بالـ kind بس.
+function getProviderFor(kind,model){
+  if(model==='z-ai/glm-5.2')return{endpoint:CONFIG.endpoints.nvidia,apiKeys:[CONFIG.nvidiaApiKey]};
+  if(kind==='code')return{endpoint:CONFIG.endpoints.openrouter,apiKeys:CONFIG.openrouterApiKeys};
+  return{endpoint:CONFIG.endpoints.groq,apiKeys:[CONFIG.groqApiKey]};
+}
 // أسماء قديمة لسه مستخدمة في أماكن تانية بالكود، سايبها عشان التوافق
 const SITE_NAME=CONFIG.siteName;
 const MAX_FILE_SIZE=CONFIG.maxFileSize;
@@ -650,14 +663,12 @@ function initParticles(){
 // يجرب كل موديل في القائمة بالترتيب. لو موديل رجع 404 (اتلغى) أو 429 (تجاوز الحد)
 // أو أي خطأ سيرفر، يجرب اللي بعده تلقائياً بدل ما يوقف التطبيق كله.
 async function callModelWithFallback(kind,body,{stream=false}={}){
-  const isCode=kind==='code';
-  const endpoint=isCode?CONFIG.endpoints.openrouter:CONFIG.endpoints.groq;
-  // Groq عنده مفتاح واحد بس، OpenRouter عنده قايمة مفاتيح احتياطية
-  const apiKeys=isCode?CONFIG.openrouterApiKeys:[CONFIG.groqApiKey];
   const modelList=CONFIG.models[kind]||[];
   let lastErr=null;
   for(let i=0;i<modelList.length;i++){
     const model=modelList[i];
+    // كل موديل ممكن يكون ليه مزوّد (endpoint + مفاتيح) مختلف — مثلاً z-ai/glm-5.2 عبر NVIDIA
+    const{endpoint,apiKeys}=getProviderFor(kind,model);
     for(let k=0;k<apiKeys.length;k++){
       const apiKey=apiKeys[k];
       const isLastCombo=(i===modelList.length-1)&&(k===apiKeys.length-1);
@@ -690,17 +701,16 @@ async function callModelWithFallback(kind,body,{stream=false}={}){
 // توكن) تجرب اللي بعده. لو فشل بعد ما بدأ يبعت جزء من الرد، بنرجّع اللي
 // اتجمع لحد كده بدل ما نضيّعه بالكامل.
 async function streamModelWithFallback(kind,body,onToken){
-  const isCode=kind==='code';
-  const endpoint=isCode?CONFIG.endpoints.openrouter:CONFIG.endpoints.groq;
   // باگ كان هنا: كان بيقرأ CONFIG.openrouterApiKey (بالمفرد) وده مش موجود أصلاً
   // (الموجود بس CONFIG.openrouterApiKeys الجمع)، فكانت النتيجة apiKey=undefined
   // و"Authorization: Bearer undefined" → 401 "Missing Authentication header".
-  // التصحيح: نفس منطق قايمة المفاتيح الاحتياطية المستخدم في callModelWithFallback.
-  const apiKeys=isCode?CONFIG.openrouterApiKeys:[CONFIG.groqApiKey];
+  // التصحيح: نفس منطق قايمة المفاتيح الاحتياطية المستخدم في callModelWithFallback،
+  // ومزوّد (endpoint + مفاتيح) بيتحدد بالموديل نفسه عشان z-ai/glm-5.2 يمشي عبر NVIDIA.
   const modelList=CONFIG.models[kind]||[];
   let lastErr=null;
   for(let i=0;i<modelList.length;i++){
     const model=modelList[i];
+    const{endpoint,apiKeys}=getProviderFor(kind,model);
     for(let k=0;k<apiKeys.length;k++){
       const apiKey=apiKeys[k];
       const isLastCombo=(i===modelList.length-1)&&(k===apiKeys.length-1);
@@ -747,13 +757,14 @@ async function streamModelWithFallback(kind,body,onToken){
 // المسودات الناجحة لموديل تالت يدمجهم في رد نهائي واحد أقوى (أدق وأكمل من أي رد لوحده).
 // لو موديل فشل، بتتجاهل مسودته وتكمل بالباقي من غير ما توقف الطلب بالكامل.
 
-// نداء مباشر لموديل محدد بالاسم عبر OpenRouter (بيجرب كل المفاتيح الاحتياطية على نفس الموديل ده)
+// نداء مباشر لموديل محدد بالاسم (بيحدد المزوّد الصح للموديل ده تلقائياً — OpenRouter
+// عادةً، أو NVIDIA لو الموديل z-ai/glm-5.2 — وبيجرب كل المفاتيح الاحتياطية المتاحة لنفس الموديل)
 async function callSpecificCodeModel(model,body){
-  const apiKeys=CONFIG.openrouterApiKeys;
+  const{endpoint,apiKeys}=getProviderFor('code',model);
   let lastErr=null;
   for(let k=0;k<apiKeys.length;k++){
     try{
-      const res=await fetch(CONFIG.endpoints.openrouter,{
+      const res=await fetch(endpoint,{
         method:'POST',
         headers:{'Content-Type':'application/json','Authorization':`Bearer ${apiKeys[k]}`},
         body:JSON.stringify({...body,model,stream:false})
