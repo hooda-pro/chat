@@ -561,7 +561,12 @@ const CONFIG={
   maxFileSize:20*1024*1024, // 20MB
   // مفاتيح API (شوف التحذير فوق)
   groqApiKey:'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',
-  openrouterApiKey:'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',
+  // OpenRouter بقى ليه أكتر من مفتاح: لو المفتاح الأول فشل (خلص رصيده،
+  // اتقفل، أو رجع 401/403)، النظام يجرب المفتاح اللي بعده تلقائياً.
+  openrouterApiKeys:[
+    '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',
+    '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'
+  ],
   // موديلات مع بدائل احتياطية: لو موديل رئيسي اتلغى أو رجع خطأ 404/429،
   // النظام يجرب اللي بعده تلقائياً بدل ما يفشل الطلب بالكامل.
   models:{
@@ -640,31 +645,37 @@ function initParticles(){
 async function callModelWithFallback(kind,body,{stream=false}={}){
   const isCode=kind==='code';
   const endpoint=isCode?CONFIG.endpoints.openrouter:CONFIG.endpoints.groq;
-  const apiKey=isCode?CONFIG.openrouterApiKey:CONFIG.groqApiKey;
+  // Groq عنده مفتاح واحد بس، OpenRouter عنده قايمة مفاتيح احتياطية
+  const apiKeys=isCode?CONFIG.openrouterApiKeys:[CONFIG.groqApiKey];
   const modelList=CONFIG.models[kind]||[];
   let lastErr=null;
   for(let i=0;i<modelList.length;i++){
     const model=modelList[i];
-    try{
-      const res=await fetch(endpoint,{
-        method:'POST',
-        headers:{'Content-Type':'application/json','Authorization':`Bearer ${apiKey}`},
-        body:JSON.stringify({...body,model})
-      });
-      if(res.ok)return{res,modelUsed:model};
-      // 404 = الموديل مش موجود/اتشال، 429 = تجاوز الحد، 5xx = مشكلة مؤقتة بالسيرفر → جرب البديل
-      if([404,429,500,502,503].includes(res.status)&&i<modelList.length-1){
-        lastErr=new Error(`${model} رجع ${res.status}، بجرب الموديل البديل...`);
-        continue;
+    for(let k=0;k<apiKeys.length;k++){
+      const apiKey=apiKeys[k];
+      const isLastCombo=(i===modelList.length-1)&&(k===apiKeys.length-1);
+      try{
+        const res=await fetch(endpoint,{
+          method:'POST',
+          headers:{'Content-Type':'application/json','Authorization':`Bearer ${apiKey}`},
+          body:JSON.stringify({...body,model})
+        });
+        if(res.ok)return{res,modelUsed:model};
+        // 401/403 = مشكلة بالمفتاح ده تحديداً (اتقفل/خلص رصيده) → جرب المفتاح اللي بعده بنفس الموديل
+        // 404 = الموديل مش موجود/اتشال، 429 = تجاوز الحد، 5xx = مشكلة مؤقتة بالسيرفر → جرب البديل
+        if([401,403,404,429,500,502,503].includes(res.status)&&!isLastCombo){
+          lastErr=new Error(`${model} (مفتاح ${k+1}) رجع ${res.status}، بجرب البديل...`);
+          continue;
+        }
+        const errText=await res.text();
+        throw new Error(`خطأ ${res.status}: ${errText}`);
+      }catch(e){
+        lastErr=e;
+        if(isLastCombo)throw lastErr;
       }
-      const errText=await res.text();
-      throw new Error(`خطأ ${res.status}: ${errText}`);
-    }catch(e){
-      lastErr=e;
-      if(i===modelList.length-1)throw lastErr;
     }
   }
-  throw lastErr||new Error('كل الموديلات فشلت');
+  throw lastErr||new Error('كل الموديلات والمفاتيح فشلت');
 }
 
 // نسخة streaming من نفس فكرة الـ fallback: تجرب كل موديل بالترتيب، ولو
@@ -708,6 +719,80 @@ async function streamModelWithFallback(kind,body,onToken){
     }
   }
   throw lastErr||new Error('كل الموديلات فشلت');
+}
+
+// ===== وضع البرمجة التعاوني: google/gemma-4-31b-it:free + الموديل الأساسي بتاع الكود =====
+// الفكرة: بدل ما نعتمد على موديل واحد بس، نبعت نفس الطلب لموديلين مختلفين في نفس
+// الوقت (parallel)، وبعدين نبعت الرَدّين لموديل تالت يدمجهم في رد نهائي واحد أقوى
+// (أدق وأكمل من أي رد لوحده). لو موديل من الاتنين فشل، نستخدم رد التاني مباشرة
+// من غير دمج بدل ما نوقف الطلب بالكامل.
+
+// نداء مباشر لـ gemma عبر OpenRouter (مش جزء من قايمة fallback العادية بتاعة الكود)
+async function callGemmaDirect(body){
+  const apiKeys=CONFIG.openrouterApiKeys;
+  let lastErr=null;
+  for(let k=0;k<apiKeys.length;k++){
+    try{
+      const res=await fetch(CONFIG.endpoints.openrouter,{
+        method:'POST',
+        headers:{'Content-Type':'application/json','Authorization':`Bearer ${apiKeys[k]}`},
+        body:JSON.stringify({...body,model:'google/gemma-4-31b-it:free',stream:false})
+      });
+      if(res.ok){
+        const data=await res.json();
+        return data.choices?.[0]?.message?.content||'';
+      }
+      if([401,403,404,429,500,502,503].includes(res.status)&&k<apiKeys.length-1){
+        lastErr=new Error(`gemma (مفتاح ${k+1}) رجع ${res.status}، بجرب المفتاح اللي بعده...`);
+        continue;
+      }
+      const errText=await res.text();throw new Error(`gemma خطأ ${res.status}: ${errText}`);
+    }catch(e){lastErr=e;if(k===apiKeys.length-1)throw lastErr}
+  }
+  throw lastErr||new Error('gemma فشل بكل المفاتيح المتاحة');
+}
+
+// نداء غير-streaming للموديل الأساسي بتاع الكود (نفس قايمة fallback الموجودة)
+async function callPrimaryCodeModel(body){
+  const{res,modelUsed}=await callModelWithFallback('code',{...body,stream:false});
+  const data=await res.json();
+  return{text:data.choices?.[0]?.message?.content||'',modelUsed};
+}
+
+// المنسّق: يشغل الموديلين مع بعض بالتوازي، وبعدين يدمج الردين برد نهائي واحد (streaming)
+async function getCollaborativeCodeResponse(apiMsgs,maxTokens,onToken){
+  const body={messages:apiMsgs,temperature:0.7,max_tokens:maxTokens,top_p:1};
+  const[primaryResult,gemmaResult]=await Promise.allSettled([
+    callPrimaryCodeModel(body),
+    callGemmaDirect(body)
+  ]);
+  const primaryOk=primaryResult.status==='fulfilled';
+  const gemmaOk=gemmaResult.status==='fulfilled';
+
+  if(!primaryOk&&!gemmaOk){
+    throw primaryResult.reason||gemmaResult.reason||new Error('فشل موديل البرمجة الأساسي وgemma معاً');
+  }
+  if(primaryOk&&!gemmaOk){
+    onToken(primaryResult.value.text);
+    return{full:primaryResult.value.text,modelUsed:primaryResult.value.modelUsed};
+  }
+  if(!primaryOk&&gemmaOk){
+    onToken(gemmaResult.value);
+    return{full:gemmaResult.value,modelUsed:'google/gemma-4-31b-it:free'};
+  }
+
+  // الاتنين نجحوا: ندمجهم برد نهائي واحد عبر نفس سلسلة موديلات الكود (streaming عشان يترضى بالكتابة الحية للمستخدم)
+  const mergeMsg={role:'user',content:`لديك مسودتان لنفس المهمة من نموذجين مختلفين. ادمجهما في رد نهائي واحد أقوى يجمع أفضل ما في الاثنين (الدقة، اكتمال الكود، جودة الشرح)، والتزم بنفس قواعد إخراج الملف الكامل المذكورة في تعليمات النظام. لا تذكر أنك دمجت مسودتين ولا تعلّق على عملية الدمج نفسها — اكتب الرد النهائي المدمج مباشرة فقط.
+
+--- المسودة الأولى ---
+${primaryResult.value.text}
+
+--- المسودة الثانية ---
+${gemmaResult.value}`};
+  const{full}=await streamModelWithFallback('code',{
+    messages:[...apiMsgs,mergeMsg],temperature:0.4,max_tokens:maxTokens,top_p:1
+  },onToken);
+  return{full,modelUsed:'merged(primary+gemma)'};
 }
 
 // ===== TOAST =====
@@ -1306,11 +1391,19 @@ ${useCodeModel?codeFilePrompt:`
     })];
 
     state.streamingContent='';
-    const kind=useCodeModel?'code':'general';
-    const{full:streamedFull}=await streamModelWithFallback(kind,{
-      messages:apiMsgs,temperature:0.7,max_tokens:useCodeModel?8000:4096,top_p:1
-    },(partial)=>{state.streamingContent=partial;renderStreamingMsg()});
-    let full=streamedFull;
+    const onPartial=(partial)=>{state.streamingContent=partial;renderStreamingMsg()};
+    let full;
+    if(useCodeModel){
+      // وضع البرمجة: gemma + الموديل الأساسي بتاع الكود يشتغلوا مع بعض بالتوازي على نفس الطلب،
+      // وبعدين يتدمجوا في رد نهائي واحد أقوى (شوف getCollaborativeCodeResponse فوق)
+      const{full:collabFull}=await getCollaborativeCodeResponse(apiMsgs,8000,onPartial);
+      full=collabFull;
+    }else{
+      const{full:streamedFull}=await streamModelWithFallback('general',{
+        messages:apiMsgs,temperature:0.7,max_tokens:4096,top_p:1
+      },onPartial);
+      full=streamedFull;
+    }
     let aiMsg;
     if(useCodeModel){
       let{text:cleanText,genFiles}=extractCodeAsFiles(full,files);
@@ -1321,7 +1414,7 @@ ${useCodeModel?codeFilePrompt:`
         if(looksIncomplete(singleTextFile.content,editedCode)){
           try{
             const retryMsgs=[...apiMsgs,{role:'assistant',content:full},{role:'user',content:'الرد اللي رجعته مش الملف كاملاً، فيه جزء ناقص أو مختصر. أرسل الملف كاملاً من أول سطر لآخر سطر بعد التعديل داخل بلوك كود واحد فقط، ابدأ به مباشرة قبل أي شرح، ولا تحذف أو تختصر أي جزء من الملف الأصلي لم يتغيّر.'}];
-            const{res:retryRes}=await callModelWithFallback(kind,{
+            const{res:retryRes}=await callModelWithFallback('code',{
               messages:retryMsgs,temperature:0.2,max_tokens:8000,top_p:1,stream:false
             });
             {
