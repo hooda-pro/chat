@@ -245,8 +245,11 @@ header{
 .code-block{margin:8px 0}
 .code-block .code-block-head{display:flex;align-items:center;justify-content:space-between;background:var(--bg4);border:1px solid var(--border);border-bottom:none;border-radius:8px 8px 0 0;padding:6px 10px;direction:ltr}
 .code-block .code-lang{font-size:11px;color:var(--text2);text-transform:uppercase}
+.code-block .code-block-actions{display:flex;gap:6px}
 .code-block .code-download-btn{background:var(--primary2);color:#fff;border-radius:6px;padding:4px 10px;font-size:12px;cursor:pointer}
 .code-block .code-download-btn:hover{opacity:.9}
+.code-block .code-copy-btn{background:var(--bg3);border:1px solid var(--border);color:var(--text2);border-radius:6px;padding:4px 10px;font-size:12px;cursor:pointer}
+.code-block .code-copy-btn:hover{color:var(--text);border-color:var(--primary3)}
 .code-block pre{margin:0;border-radius:0 0 8px 8px}
 .msg-bubble hr{border:none;border-top:1px solid var(--border);margin:12px 0}
 .msg-bubble img{max-width:100%;border-radius:8px;margin:8px 0}
@@ -264,6 +267,7 @@ header{
 .typing-dot:nth-child(2){animation-delay:.2s}
 .typing-dot:nth-child(3){animation-delay:.4s}
 .typing-status{font-size:13px;color:var(--text2);line-height:1.5}
+.typing-elapsed{font-size:11px;color:var(--text3);direction:ltr;display:inline-block;opacity:.8}
 
 /* ===== MOBILE BOTTOM NAV ===== */
 #bottomNav{
@@ -319,6 +323,8 @@ header{
 .chat-send-btn{padding:10px 12px;border-radius:10px;cursor:pointer;transition:all .3s;font-size:18px;line-height:1;background:var(--bg3);color:var(--text3);flex-shrink:0;min-width:42px;min-height:42px;display:flex;align-items:center;justify-content:center}
 .chat-send-btn.active{background:linear-gradient(to left,var(--primary2),var(--purple));color:#fff;box-shadow:0 0 20px rgba(99,102,241,.2)}
 .chat-send-btn:disabled{opacity:.4;cursor:default}
+.chat-send-btn.stop-mode{background:#ef4444;color:#fff;opacity:1;cursor:pointer;box-shadow:0 0 20px rgba(239,68,68,.25)}
+.chat-send-btn.stop-mode:hover{background:#dc2626}
 .chat-footer{text-align:center;padding:6px 12px 8px;font-size:11px;color:var(--text3)}
 
 /* ===== EDIT BAR ===== */
@@ -548,65 +554,45 @@ header{
 <script>
 // ===== CONFIG =====
 // =====================================================================
-// ⚠️ تنبيه أمان مهم جداً: المفاتيح تحت ظاهرة لأي حد يفتح "عرض مصدر الصفحة"
-// (View Source) في المتصفح. ده وضع طبيعي في أي تطبيق يشتغل بالكامل من
-// المتصفح (client-side) بدون سيرفر خلفي، لكن معناه إن أي حد يقدر ياخد
-// المفتاح ده ويستخدمه بنفسه على حسابك. لو الموقع ده منشور لناس تانية:
-//   1) اعمل Regenerate للمفاتيح دي من لوحة تحكم Groq و OpenRouter فوراً.
-//   2) الأفضل (لو ممكن) تحط proxy بسيط على سيرفر صغير (Cloudflare Worker/
-//      Vercel Function) يخبي المفتاح، والصفحة تكلم الـ proxy بدل ما تكلم
-//      API الموديل مباشرة.
+// ⚠️ تنبيه أمان: النسخة القديمة من الملف ده كانت فيها مفتاح Groq و7 مفاتيح
+// OpenRouter مكتوبين صراحة هنا كنص عادي — أي حد يفتح "عرض مصدر الصفحة"
+// (View Source) كان يقدر ياخدهم ويستخدمهم على حسابك. اتشالوا بالكامل من
+// هنا؛ كل الطلبات دلوقتي بتعدي عبر proxyUrl (Cloudflare Worker) اللي
+// بيضيف المفتاح الصح سيرفر-سايد (شوف novamind-proxy-worker.js). المتصفح
+// مبقاش شايف ولا محتاج يشوف أي مفتاح API خالص، بالظبط زي ما كان حاصل
+// أصلاً مع z-ai/glm-5.2 عبر NVIDIA.
+// ⚠️ المفاتيح القديمة كانت متسربة بالفعل — لازم تتعمل لها Regenerate/Rotate
+// من لوحة تحكم Groq وOpenRouter وNVIDIA فوراً، وتتحط كمتغيرات سرية جوه
+// الـ Worker بس، مش هنا.
 // =====================================================================
 const CONFIG={
   siteName:'NovaMind AI',
   developer:'Mahmoud Ahmed Saeed',
   maxFileSize:20*1024*1024, // 20MB
-  // مفاتيح API (شوف التحذير فوق)
-  groqApiKey:'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',
-  // OpenRouter بقى ليه أكتر من مفتاح: لو المفتاح الأول فشل (خلص رصيده،
-  // اتقفل، أو رجع 401/403)، النظام يجرب المفتاح اللي بعده تلقائياً.
-  openrouterApiKeys:[
-    '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',
-    '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',
-    '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',
-    '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',
-    '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',
-    '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',
-    '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'
-  ],
-  // ⚠️ integrate.api.nvidia.com (بتاع build.nvidia.com) مش بيدعم CORS، يعني أي
-  // fetch() منادي عليه *مباشرة* من المتصفح هيتحجب من المتصفح نفسه ويطلع
-  // "Failed to fetch" — ده مش باگ في مفتاحك ولا في الموديل، ده قيد من NVIDIA نفسها
-  // (لازم الطلب يعدي من سيرفر/proxy مش من جافاسكربت شغال جوه صفحة الموقع).
-  // عشان كده z-ai/glm-5.2 لازم يمر عبر proxy بسيط (Cloudflare Worker مجاني) بدل
-  // ما يتنادى عليه مباشرة من هنا. المفتاح الحقيقي اتنقل لجوه الـ Worker (متغير سري
-  // مش ظاهر في كود الموقع) — حط هنا رابط الـ Worker بتاعك بعد ما تعمل نشره (خطوات
-  // النشر في ملف nvidia-proxy-worker.js اللي جنب الملف ده).
-  nvidiaProxyUrl:'https://novamind-proxy.hooda2026g1.workers.dev',
+  // رابط الـ Worker الموحّد (proxy) اللي بيغطي Groq وOpenRouter وNVIDIA الثلاثة.
+  // حط هنا رابط الـ Worker بتاعك بعد نشره (خطوات النشر في novamind-proxy-worker.js).
+  proxyUrl:'https://novamind-proxy.hooda2026g1.workers.dev',
   // موديلات مع بدائل احتياطية: لو موديل رئيسي اتلغى أو رجع خطأ 404/429،
   // النظام يجرب اللي بعده تلقائياً بدل ما يفشل الطلب بالكامل.
   models:{
     general:['openai/gpt-oss-120b','llama-3.3-70b-versatile','llama-3.1-8b-instant'], // عبر Groq
-    code:['z-ai/glm-5.2','cohere/north-mini-code:free','qwen/qwen3-coder:free','openai/gpt-oss-120b:free','meta-llama/llama-3.3-70b-instruct:free'], // z-ai/glm-5.2 عبر NVIDIA هو الموديل الأساسي، والباقي بدائل احتياطية عبر OpenRouter لو فشل
+    // z-ai/glm-5.2 عبر NVIDIA هو الموديل الأساسي، والباقي بدائل احتياطية عبر OpenRouter لو فشل.
+    // تنبيه: قايمة الموديلات المجانية على OpenRouter بتتغيّر باستمرار (موديل ممكن يفقد
+    // وسم :free فجأة)، فكل ما نزوّد عدد البدائل هنا كل ما قلّت فرصة إن كل الموديلات
+    // تفشل مع بعض في نفس اللحظة. راجع openrouter.ai/models?fmt=cards&supported_parameters=tools
+    // بشكل دوري لتحديث القايمة لو موديل اتشال من الفري تير.
+    code:['z-ai/glm-5.2','cohere/north-mini-code:free','qwen/qwen3-coder:free','openai/gpt-oss-120b:free','deepseek/deepseek-r1-distill:free','meta-llama/llama-3.3-70b-instruct:free'],
     vision:['google/gemma-4-31b-it:free','meta-llama/llama-3.2-11b-vision-instruct:free','qwen/qwen2.5-vl-32b-instruct:free'] // عبر OpenRouter
-  },
-  endpoints:{
-    groq:'https://api.groq.com/openai/v1/chat/completions',
-    openrouter:'https://openrouter.ai/api/v1/chat/completions',
-    nvidia:'https://integrate.api.nvidia.com/v1/chat/completions' // سايبينه للمرجعية بس، مش بيتنادى عليه من المتصفح مباشرة دلوقتي
   }
 };
-// خريطة: بيرجع الـ endpoint ومفاتيح الـ API الصح لموديل معيّن. النظام القديم كان
-// بيفترض إن كل موديلات "kind" واحد بتمشي عبر نفس الـ endpoint، لكن z-ai/glm-5.2
-// بيتنادى عبر NVIDIA (endpoint ومفتاح مختلفين تماماً) بينما باقي موديلات الكود
-// لسه بتمشي عبر OpenRouter — فبقينا محتاجين نحدد المزوّد بالموديل نفسه مش بالـ kind بس.
+// خريطة: بيرجع الـ endpoint (مسار الـ proxy) الصح لموديل معيّن. z-ai/glm-5.2 بيتنادى
+// عبر مسار /nvidia في الـ proxy، موديلات الكود التانية عبر /openrouter، والباقي عبر /groq.
+// apiKeys:[''] لكل الحالات لأن المفتاح الحقيقي دلوقتي سيرفر-سايد بالكامل جوه الـ Worker،
+// مش محتاجين المتصفح يبعت أو حتى يعرف أي مفتاح.
 function getProviderFor(kind,model){
-  // z-ai/glm-5.2: بيتنادى عبر الـ proxy (الـ Worker) اللي هو بيضيف مفتاح NVIDIA
-  // من جواه (سيرفر-سايد) ويرجّع الرد ومعاه CORS headers صح — عشان كده مفيش
-  // Authorization هنا خالص (apiKeys:['']) لأن الـ Worker مش محتاج مفتاح من المتصفح.
-  if(model==='z-ai/glm-5.2')return{endpoint:CONFIG.nvidiaProxyUrl,apiKeys:['']};
-  if(kind==='code')return{endpoint:CONFIG.endpoints.openrouter,apiKeys:CONFIG.openrouterApiKeys};
-  return{endpoint:CONFIG.endpoints.groq,apiKeys:[CONFIG.groqApiKey]};
+  if(model==='z-ai/glm-5.2')return{endpoint:`${CONFIG.proxyUrl}/nvidia`,apiKeys:['']};
+  if(kind==='code')return{endpoint:`${CONFIG.proxyUrl}/openrouter`,apiKeys:['']};
+  return{endpoint:`${CONFIG.proxyUrl}/groq`,apiKeys:['']};
 }
 // أسماء قديمة لسه مستخدمة في أماكن تانية بالكود، سايبها عشان التوافق
 const SITE_NAME=CONFIG.siteName;
@@ -668,6 +654,35 @@ function initParticles(){
   }
 }
 
+// ===== FETCH مع TIMEOUT =====
+// باگ كان بيسبب "تعليق للأبد": مفيش أي حد أقصى لوقت انتظار الرد، فلو موديل مجاني
+// (أو الـ proxy بتاع الـ Worker) قبل الاتصال وسكت من غير ما يرد ولا يقفل الاتصال،
+// المتصفح كان بيستنى إلى ما لا نهاية وفقاعة "جاري إنشاء الكود الآن..." تفضل واقفة
+// من غير أي رد ولا حتى رسالة خطأ. الحل: كل طلب دلوقتي ليه مهلة كبيرة (ساعة كاملة)
+// بدل 25 ثانية القديمة اللي كانت بتقطع الموديلات المجانية البطيئة قبل ما تخلص،
+// ولو اتجاوزها فعلاً (يعني اتصال ميت فعلاً مش بس بطيء) بيتلغى تلقائياً
+// (AbortController) فيدخل في نفس منطق "جرب البديل" الموجود أصلاً بدل ما يعلّق
+// التطبيق كله للأبد. بالنسبة للبث (streaming) في streamModelWithFallback تحت،
+// المهلة دي بترجع تتصفّر مع كل جزء جديد بيوصل (resetIdle)، يعني الموديل يقدر
+// ياخد وقته العادي بالكامل طول ما لسه شغال وبيبعت حاجة، وميتقطعش غصب عنه.
+const FETCH_TIMEOUT_MS=3600000; // ساعة كاملة (كانت 25 ثانية فقط)
+const STOP_ERROR='__USER_STOPPED__';
+// عنصر تحكم عام بيتنشئ مع كل طلب جديد (doSend) وبيتلغي لو المستخدم ضغط زرار
+// الإيقاف (⏹). كل الدوال اللي بتعمل fetch بتربط نفسها بيه عشان الإلغاء يوصل
+// فوراً حتى لو لسه قبل انتهاء المهلة الساعة.
+let globalUserAbort=null;
+function linkUserAbort(controller){
+  if(!globalUserAbort)return;
+  if(globalUserAbort.signal.aborted){controller.abort();return}
+  globalUserAbort.signal.addEventListener('abort',()=>controller.abort(),{once:true});
+}
+function fetchWithTimeout(url,options={}){
+  const controller=new AbortController();
+  const timer=setTimeout(()=>controller.abort(),FETCH_TIMEOUT_MS);
+  linkUserAbort(controller);
+  return fetch(url,{...options,signal:controller.signal}).finally(()=>clearTimeout(timer));
+}
+
 // ===== API CALLER مرن مع بدائل تلقائية =====
 // يجرب كل موديل في القائمة بالترتيب. لو موديل رجع 404 (اتلغى) أو 429 (تجاوز الحد)
 // أو أي خطأ سيرفر، يجرب اللي بعده تلقائياً بدل ما يوقف التطبيق كله.
@@ -682,7 +697,7 @@ async function callModelWithFallback(kind,body,{stream=false}={}){
       const apiKey=apiKeys[k];
       const isLastCombo=(i===modelList.length-1)&&(k===apiKeys.length-1);
       try{
-        const res=await fetch(endpoint,{
+        const res=await fetchWithTimeout(endpoint,{
           method:'POST',
           headers:{'Content-Type':'application/json','Authorization':`Bearer ${apiKey}`},
           body:JSON.stringify({...body,model})
@@ -697,7 +712,8 @@ async function callModelWithFallback(kind,body,{stream=false}={}){
         const errText=await res.text();
         throw new Error(`خطأ ${res.status}: ${errText}`);
       }catch(e){
-        lastErr=e;
+        if(e.name==='AbortError'&&globalUserAbort?.signal.aborted)throw new Error(STOP_ERROR);
+        lastErr=e.name==='AbortError'?new Error(`${model} (مفتاح ${k+1}) ما ردش خلال ${FETCH_TIMEOUT_MS/1000} ثانية، بجرب البديل...`):e;
         if(isLastCombo)throw lastErr;
       }
     }
@@ -724,10 +740,20 @@ async function streamModelWithFallback(kind,body,onToken){
       const apiKey=apiKeys[k];
       const isLastCombo=(i===modelList.length-1)&&(k===apiKeys.length-1);
       let full='';let gotAnyToken=false;
+      // باگ التعليق الأساسي كان هنا: لو الموديل بدأ يبعت رد وبعدين سكت فجأة في
+      // نص البث (مش نادر مع الموديلات المجانية المزدحمة)، حلقة القراءة تحت
+      // كانت بتستنى reader.read() للأبد من غير أي مهلة. الحل: AbortController
+      // خاص بالبث نفسه + "حارس" بيتصفّر كل ما توصل قطعة بيانات جديدة (مش وقت
+      // ثابت من الأول)، فلو سكت 25 ثانية من غير أي جديد بيقطع ويجرب البديل.
+      const streamController=new AbortController();
+      linkUserAbort(streamController);
+      let idleTimer=setTimeout(()=>streamController.abort(),FETCH_TIMEOUT_MS);
+      const resetIdle=()=>{clearTimeout(idleTimer);idleTimer=setTimeout(()=>streamController.abort(),FETCH_TIMEOUT_MS)};
       try{
         const res=await fetch(endpoint,{
           method:'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${apiKey}`},
-          body:JSON.stringify({...body,model,stream:true})
+          body:JSON.stringify({...body,model,stream:true}),
+          signal:streamController.signal
         });
         if(!res.ok){
           // 401/403 = مشكلة بالمفتاح ده (اتقفل/خلص رصيده) → جرب المفتاح اللي بعده بنفس الموديل
@@ -740,7 +766,7 @@ async function streamModelWithFallback(kind,body,onToken){
         }
         const reader=res.body.getReader();const decoder=new TextDecoder();
         while(true){
-          const{done,value}=await reader.read();if(done)break;
+          const{done,value}=await reader.read();resetIdle();if(done)break;
           const chunk=decoder.decode(value);const lns=chunk.split('\n');
           for(const line of lns){
             if(line.startsWith('data: ')){
@@ -749,9 +775,17 @@ async function streamModelWithFallback(kind,body,onToken){
             }
           }
         }
+        clearTimeout(idleTimer);
         return{full,modelUsed:model};
       }catch(e){
-        lastErr=e;
+        clearTimeout(idleTimer);
+        if(e.name==='AbortError'&&globalUserAbort?.signal.aborted){
+          // المستخدم ضغط إيقاف بنفسه: نرجّع اللي اتكتب لحد كده (لو فيه)
+          // فوراً من غير أي محاولة بديل تانية، مش خطأ "الموديل سكت".
+          if(gotAnyToken)return{full,modelUsed:model,partial:true,stopped:true};
+          throw new Error(STOP_ERROR);
+        }
+        lastErr=e.name==='AbortError'?new Error(`${model} (مفتاح ${k+1}) سكت ${FETCH_TIMEOUT_MS/1000} ثانية من غير رد، بجرب البديل...`):e;
         if(gotAnyToken)return{full,modelUsed:model,partial:true}; // كان في تقدم، منضيّعوش
         if(isLastCombo)throw lastErr;
       }
@@ -773,7 +807,7 @@ async function callSpecificCodeModel(model,body){
   let lastErr=null;
   for(let k=0;k<apiKeys.length;k++){
     try{
-      const res=await fetch(endpoint,{
+      const res=await fetchWithTimeout(endpoint,{
         method:'POST',
         headers:{'Content-Type':'application/json','Authorization':`Bearer ${apiKeys[k]}`},
         body:JSON.stringify({...body,model,stream:false})
@@ -787,7 +821,16 @@ async function callSpecificCodeModel(model,body){
         continue;
       }
       const errText=await res.text();throw new Error(`${model} خطأ ${res.status}: ${errText}`);
-    }catch(e){lastErr=e;if(k===apiKeys.length-1)throw lastErr}
+    }catch(e){
+      // باگ كان هنا: e.name==='AbortError' (تايم آوت المهلة) كان بيتلقّف من غير ترجمة،
+      // فكانت رسالة الخطأ الخام بتوصل للمستخدم زي ما هي ("signal is aborted without reason")
+      // بدل رسالة مفهومة — بينما الدوال التانية (callModelWithFallback و streamModelWithFallback)
+      // كانت بتترجمها. هنا بقى نفس المنطق عشان وضع البرمجة التعاوني (اللي بيستخدم الدالة دي)
+      // يوريك رسالة واضحة بدل ما "تسرّب" رسالة الـ DOMException الخام.
+      if(e.name==='AbortError'&&globalUserAbort?.signal.aborted)throw new Error(STOP_ERROR);
+      lastErr=e.name==='AbortError'?new Error(`${model} (مفتاح ${k+1}) ما ردش خلال ${FETCH_TIMEOUT_MS/1000} ثانية، بجرب البديل...`):e;
+      if(k===apiKeys.length-1)throw lastErr;
+    }
   }
   throw lastErr||new Error(`${model} فشل بكل المفاتيح المتاحة`);
 }
@@ -1201,9 +1244,20 @@ function downloadTextFile(content,filename){
   URL.revokeObjectURL(url);
 }
 chatMessages.addEventListener('click',e=>{
-  const btn=e.target.closest('.code-download-btn');if(!btn)return;
-  const item=codeBlockStore[btn.dataset.codeId];if(!item)return;
-  downloadTextFile(item.code,`ملف_معدل_${btn.dataset.codeId}.${guessExt(item.lang)}`);
+  const dlBtn=e.target.closest('.code-download-btn');
+  if(dlBtn){
+    const item=codeBlockStore[dlBtn.dataset.codeId];if(!item)return;
+    downloadTextFile(item.code,`ملف_معدل_${dlBtn.dataset.codeId}.${guessExt(item.lang)}`);
+    return;
+  }
+  const copyBtn=e.target.closest('.code-copy-btn');
+  if(copyBtn){
+    const item=codeBlockStore[copyBtn.dataset.codeId];if(!item)return;
+    const done=()=>showToast('تم نسخ الكود');
+    navigator.clipboard?.writeText(item.code).then(done).catch(()=>{
+      const ta=document.createElement('textarea');ta.value=item.code;document.body.appendChild(ta);ta.select();document.execCommand('copy');document.body.removeChild(ta);done();
+    });
+  }
 });
 function renderMd(t){
   if(!t)return'';
@@ -1222,7 +1276,7 @@ function renderMd(t){
   h=h.replace(/`([^`]+)`/g,'<code>$1</code>');
   h=h.replace(/\u0000(cb\d+)\u0000/g,(m,id)=>{
     const item=codeBlockStore[id];if(!item)return'';
-    return `<div class="code-block"><div class="code-block-head"><span class="code-lang">${escHtml(item.lang||'code')}</span><button class="code-download-btn" data-code-id="${id}">⬇ تحميل كملف</button></div><pre><code>${escHtml(item.code)}</code></pre></div>`;
+    return `<div class="code-block"><div class="code-block-head"><span class="code-lang">${escHtml(item.lang||'code')}</span><div class="code-block-actions"><button class="code-copy-btn" data-code-id="${id}">📋 نسخ</button><button class="code-download-btn" data-code-id="${id}">⬇ تحميل كملف</button></div></div><pre><code>${escHtml(item.code)}</code></pre></div>`;
   });
   h=h.replace(/\[([^\]]+)\]\(([^)]+)\)/g,'<a href="$2" target="_blank">$1</a>');
   h=h.replace(/!\[([^\]]*)\]\(([^)]+)\)/g,'<img src="$2" alt="$1" loading="lazy">');
@@ -1302,7 +1356,12 @@ function renderAttachPreview(){
   });
 }
 function updateSendBtnState(){
-  sendBtn.disabled=(!chatInput.value.trim()&&!pendingFiles.length&&!pendingImages.length)||state.isLoading;
+  if(state.isLoading){
+    sendBtn.disabled=false;sendBtn.textContent='⏹';sendBtn.title='إيقاف التوليد';sendBtn.classList.add('stop-mode');
+    return;
+  }
+  sendBtn.classList.remove('stop-mode');sendBtn.textContent='➤';sendBtn.title='إرسال';
+  sendBtn.disabled=(!chatInput.value.trim()&&!pendingFiles.length&&!pendingImages.length);
 }
 
 // ===== INPUT =====
@@ -1313,7 +1372,15 @@ chatInput.addEventListener('input',()=>{
 chatInput.addEventListener('keydown',e=>{
   if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendMessage()}
 });
-sendBtn.addEventListener('click',()=>sendMessage());
+sendBtn.addEventListener('click',()=>{
+  if(state.isLoading){stopGeneration();return}
+  sendMessage();
+});
+// المستخدم يقدر يوقف التوليد يدوياً في أي وقت (بدل ما يستنى المهلة الطويلة الجديدة
+// لو حاسس إن الرد مش رايح لحته)، من غير ما يفقد أي جزء اتكتب فعلاً لحد لحظة الإيقاف.
+function stopGeneration(){
+  if(globalUserAbort)globalUserAbort.abort();
+}
 
 async function sendMessage(){
   if(state.editIndex>=0){
@@ -1343,7 +1410,7 @@ async function sendMessage(){
 async function doSend(content,files,images){
   const userMsg={id:genId(),role:'user',content,timestamp:Date.now(),files:files.length?files:undefined,images:images.length?images:undefined};
   state.messages.push(userMsg);updateConv();renderMessages();saveState();
-  state.isLoading=true;sendBtn.disabled=true;showTyping(true);
+  state.isLoading=true;globalUserAbort=new AbortController();updateSendBtnState();showTyping(true);
   try{
     // الموديل الأساسي (Groq) لا يدعم الصور، فنستخدم موديل مساعد لتحليلها ووصفها نصياً
     if(images.length){
@@ -1496,10 +1563,20 @@ ${useCodeModel?codeFilePrompt:`
     }
     state.messages.push(aiMsg);updateConv();state.streamingContent='';renderMessages();saveState();
   }catch(err){
-    const errMsg={id:genId(),role:'assistant',content:`عذراً، حدث خطأ: ${err.message}`,timestamp:Date.now()};
-    state.messages.push(errMsg);updateConv();renderMessages();saveState();
+    if(err.message===STOP_ERROR){
+      // المستخدم ضغط ⏹ قبل ما يوصل أي جزء من الرد؛ لو كان فيه جزء اتكتب فعلاً
+      // (streamingContent) بنحفظه كرد كامل بدل ما نضيّعه، بدل رسالة خطأ.
+      if(state.streamingContent&&state.streamingContent.trim()){
+        const partialMsg={id:genId(),role:'assistant',content:state.streamingContent+'\n\n_(تم إيقاف التوليد)_',timestamp:Date.now()};
+        state.messages.push(partialMsg);updateConv();
+      }
+      showToast('تم إيقاف التوليد');renderMessages();saveState();
+    }else{
+      const errMsg={id:genId(),role:'assistant',content:`عذراً، حدث خطأ: ${err.message}`,timestamp:Date.now()};
+      state.messages.push(errMsg);updateConv();renderMessages();saveState();
+    }
   }finally{
-    state.isLoading=false;showTyping(false);updateSendBtnState();chatInput.focus()
+    state.isLoading=false;globalUserAbort=null;showTyping(false);state.streamingContent='';updateSendBtnState();chatInput.focus()
   }
 }
 
@@ -1510,17 +1587,31 @@ function updateConv(){
 // showTyping(true, 'نص الحالة الحالية') بيعرض فقاعة فيها النقاط المتحركة + جملة قصيرة
 // بتوصف اللي بيحصل فعلياً دلوقتي (بدل ما تفضل نقاط عايمة من غير أي توضيح).
 // setStatus(text) بتحدّث النص من غير ما تعيد بناء الفقاعة، ولو الفقاعة مش ظاهرة أصلاً بتظهرها.
+// بعد ما اتشالت مهلة الـ 25 ثانية القديمة، الرد ممكن ياخد وقت أطول بكتير من الأول
+// (لحد ساعة كاملة)؛ عشان المستخدم يفضل مطمئن إن الموديل لسه شغال فعلاً ومش عالق،
+// بنضيف عداد وقت حي جنب حالة الكتابة بيتحدّث كل ثانية.
+let typingElapsedTimer=null,typingStartedAt=0;
+function fmtElapsed(sec){const m=Math.floor(sec/60),s=sec%60;return m>0?`${m}:${String(s).padStart(2,'0')}`:`${s}ث`}
 function showTyping(show,status){
   const existing=chatMessages.querySelector('.typing');
   if(show){
     if(!existing){
+      typingStartedAt=Date.now();
       const div=document.createElement('div');div.className='typing';
-      div.innerHTML=`<div class="msg-avatar ai">✦</div><div class="typing-bubble"><div class="typing-dots"><span class="typing-dot"></span><span class="typing-dot"></span><span class="typing-dot"></span></div><div class="typing-status">${escHtml(status||'جاري التفكير...')}</div></div>`;
+      div.innerHTML=`<div class="msg-avatar ai">✦</div><div class="typing-bubble"><div class="typing-dots"><span class="typing-dot"></span><span class="typing-dot"></span><span class="typing-dot"></span></div><div class="typing-status">${escHtml(status||'جاري التفكير...')} <span class="typing-elapsed">0ث</span></div></div>`;
       chatMessages.appendChild(div);scrollToBottom();
+      clearInterval(typingElapsedTimer);
+      typingElapsedTimer=setInterval(()=>{
+        const el=chatMessages.querySelector('.typing .typing-elapsed');
+        if(!el){clearInterval(typingElapsedTimer);return}
+        el.textContent=fmtElapsed(Math.floor((Date.now()-typingStartedAt)/1000));
+      },1000);
     }else if(status){
-      const st=existing.querySelector('.typing-status');if(st)st.textContent=status;scrollToBottom();
+      const st=existing.querySelector('.typing-status');
+      if(st){const elapsedEl=st.querySelector('.typing-elapsed');const elapsedTxt=elapsedEl?elapsedEl.outerHTML:'';st.innerHTML=`${escHtml(status)} ${elapsedTxt}`}
+      scrollToBottom();
     }
-  }else if(!show&&existing)existing.remove();
+  }else if(!show&&existing){existing.remove();clearInterval(typingElapsedTimer)}
 }
 function setStatus(text){showTyping(true,text)}
 
