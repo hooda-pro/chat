@@ -258,10 +258,12 @@ header{
 .msg-imgs img{max-width:160px;max-height:160px;border-radius:8px;object-fit:cover;border:1px solid var(--border)}
 /* typing */
 .typing{display:flex;align-items:center;gap:8px;padding:6px 16px;animation:fadeIn .3s}
-.typing-dots{display:flex;align-items:center;gap:4px;padding:12px 20px;background:var(--bg2);border:1px solid var(--border);border-radius:16px;border-bottom-right-radius:4px}
+.typing-bubble{display:flex;align-items:center;gap:10px;padding:10px 18px;background:var(--bg2);border:1px solid var(--border);border-radius:16px;border-bottom-right-radius:4px;max-width:85%}
+.typing-dots{display:flex;align-items:center;gap:4px;flex-shrink:0}
 .typing-dot{width:8px;height:8px;border-radius:50%;background:var(--primary);animation:bounce 1.4s ease-in-out infinite}
 .typing-dot:nth-child(2){animation-delay:.2s}
 .typing-dot:nth-child(3){animation-delay:.4s}
+.typing-status{font-size:13px;color:var(--text2);line-height:1.5}
 
 /* ===== MOBILE BOTTOM NAV ===== */
 #bottomNav{
@@ -565,7 +567,11 @@ const CONFIG={
   // اتقفل، أو رجع 401/403)، النظام يجرب المفتاح اللي بعده تلقائياً.
   openrouterApiKeys:[
     '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',
-    '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'
+    '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',
+    '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',
+    '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',
+    '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',
+    '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'
   ],
   // موديلات مع بدائل احتياطية: لو موديل رئيسي اتلغى أو رجع خطأ 404/429،
   // النظام يجرب اللي بعده تلقائياً بدل ما يفشل الطلب بالكامل.
@@ -685,40 +691,53 @@ async function callModelWithFallback(kind,body,{stream=false}={}){
 async function streamModelWithFallback(kind,body,onToken){
   const isCode=kind==='code';
   const endpoint=isCode?CONFIG.endpoints.openrouter:CONFIG.endpoints.groq;
-  const apiKey=isCode?CONFIG.openrouterApiKey:CONFIG.groqApiKey;
+  // باگ كان هنا: كان بيقرأ CONFIG.openrouterApiKey (بالمفرد) وده مش موجود أصلاً
+  // (الموجود بس CONFIG.openrouterApiKeys الجمع)، فكانت النتيجة apiKey=undefined
+  // و"Authorization: Bearer undefined" → 401 "Missing Authentication header".
+  // التصحيح: نفس منطق قايمة المفاتيح الاحتياطية المستخدم في callModelWithFallback.
+  const apiKeys=isCode?CONFIG.openrouterApiKeys:[CONFIG.groqApiKey];
   const modelList=CONFIG.models[kind]||[];
   let lastErr=null;
   for(let i=0;i<modelList.length;i++){
     const model=modelList[i];
-    let full='';let gotAnyToken=false;
-    try{
-      const res=await fetch(endpoint,{
-        method:'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${apiKey}`},
-        body:JSON.stringify({...body,model,stream:true})
-      });
-      if(!res.ok){
-        if([404,429,500,502,503].includes(res.status)&&i<modelList.length-1){lastErr=new Error(`${model}: ${res.status}`);continue}
-        const errText=await res.text();throw new Error(`خطأ ${res.status}: ${errText}`);
-      }
-      const reader=res.body.getReader();const decoder=new TextDecoder();
-      while(true){
-        const{done,value}=await reader.read();if(done)break;
-        const chunk=decoder.decode(value);const lns=chunk.split('\n');
-        for(const line of lns){
-          if(line.startsWith('data: ')){
-            const data=line.slice(6);if(data==='[DONE]')continue;
-            try{const p=JSON.parse(data);const d=p.choices?.[0]?.delta?.content||'';if(d){full+=d;gotAnyToken=true;onToken(full)}}catch{}
+    for(let k=0;k<apiKeys.length;k++){
+      const apiKey=apiKeys[k];
+      const isLastCombo=(i===modelList.length-1)&&(k===apiKeys.length-1);
+      let full='';let gotAnyToken=false;
+      try{
+        const res=await fetch(endpoint,{
+          method:'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${apiKey}`},
+          body:JSON.stringify({...body,model,stream:true})
+        });
+        if(!res.ok){
+          // 401/403 = مشكلة بالمفتاح ده (اتقفل/خلص رصيده) → جرب المفتاح اللي بعده بنفس الموديل
+          // 404/429/5xx = الموديل نفسه مش متاح دلوقتي → جرب البديل
+          if([401,403,404,429,500,502,503].includes(res.status)&&!isLastCombo){
+            lastErr=new Error(`${model} (مفتاح ${k+1}) رجع ${res.status}، بجرب البديل...`);
+            continue;
+          }
+          const errText=await res.text();throw new Error(`خطأ ${res.status}: ${errText}`);
+        }
+        const reader=res.body.getReader();const decoder=new TextDecoder();
+        while(true){
+          const{done,value}=await reader.read();if(done)break;
+          const chunk=decoder.decode(value);const lns=chunk.split('\n');
+          for(const line of lns){
+            if(line.startsWith('data: ')){
+              const data=line.slice(6);if(data==='[DONE]')continue;
+              try{const p=JSON.parse(data);const d=p.choices?.[0]?.delta?.content||'';if(d){full+=d;gotAnyToken=true;onToken(full)}}catch{}
+            }
           }
         }
+        return{full,modelUsed:model};
+      }catch(e){
+        lastErr=e;
+        if(gotAnyToken)return{full,modelUsed:model,partial:true}; // كان في تقدم، منضيّعوش
+        if(isLastCombo)throw lastErr;
       }
-      return{full,modelUsed:model};
-    }catch(e){
-      lastErr=e;
-      if(gotAnyToken)return{full,modelUsed:model,partial:true}; // كان في تقدم، منضيّعوش
-      if(i===modelList.length-1)throw lastErr;
     }
   }
-  throw lastErr||new Error('كل الموديلات فشلت');
+  throw lastErr||new Error('كل الموديلات والمفاتيح فشلت');
 }
 
 // ===== وضع البرمجة التعاوني: google/gemma-4-31b-it:free + الموديل الأساسي بتاع الكود =====
@@ -1146,8 +1165,8 @@ async function performTargetedFileEdit(userText,file,apiUrl,apiKey,apiModel){
   renderStreamingMsg();
 
   const{res:editRes}=await callModelWithFallback('code',{
-    temperature:0.4,max_tokens:6000,stream:false,messages:[
-      {role:'system',content:`أنت مساعد برمجة. هذا جزء من ملف أكبر اسمه "${file.name}" (من السطر ${target.start} إلى ${target.end} من إجمالي ${lines.length} سطر). عدّل هذا الجزء فقط بناءً على طلب المستخدم. اكتب جملة قصيرة قبل الكود توضح ماذا لاحظت ووين بالظبط الجزء المطلوب تعديله، ثم بلوك كود واحد فيه الجزء بعد التعديل كاملاً (شامل أي سطر لم يتغيّر داخل هذا الجزء تحديداً)، ثم جملة قصيرة بعد الكود توضح ماذا عدّلت بالضبط. لا تكتب الملف كله، فقط هذا الجزء.`},
+    temperature:0.4,max_tokens:9000,stream:false,messages:[
+      {role:'system',content:`أنت مهندس برمجيات خبير. هذا جزء من ملف أكبر اسمه "${file.name}" (من السطر ${target.start} إلى ${target.end} من إجمالي ${lines.length} سطر). افهم منطق هذا الجزء وعلاقته بالطلب قبل التعديل، وحدد السبب الجذري لو فيه مشكلة، ثم عدّل هذا الجزء فقط بناءً على طلب المستخدم. اكتب جملة قصيرة قبل الكود توضح ماذا لاحظت ووين بالظبط الجزء المطلوب تعديله، ثم بلوك كود واحد فيه الجزء بعد التعديل كاملاً (شامل أي سطر لم يتغيّر داخل هذا الجزء تحديداً)، ثم جملة قصيرة بعد الكود توضح ماذا عدّلت بالضبط ولو فيه نصيحة إضافية مفيدة. لا تكتب الملف كله، فقط هذا الجزء.`},
       {role:'user',content:`الجزء (من سطر ${target.start} إلى ${target.end}):\n\`\`\`\n${target.content}\n\`\`\`\n\nطلب المستخدم: ${userText}`}
     ]});
   const editData=await editRes.json();
@@ -1339,17 +1358,25 @@ async function doSend(content,files,images){
     }
 
     const codeFilePrompt=`
+أنت الآن تعمل كمهندس برمجيات خبير (senior software engineer)، وليس مجرد أداة توليد نص. مهمتك الحقيقية هي فهم الكود المرفوع فهماً كاملاً قبل ما تلمسه:
+- اقرأ الملف كله وافهم الغرض منه، البنية العامة، والمنطق اللي بيعتمد عليه، قبل ما تقرر أي تعديل.
+- لو فيه مشكلة أو باگ، حدد السبب الجذري بدقة (مش مجرد الأعراض)، ووضّح للمستخدم باختصار ايه المشكلة الحقيقية اللي لقيتها ووين مكانها بالظبط.
+- استخدم خبرتك في هندسة البرمجيات: لو شايف تحسينات إضافية مفيدة (أداء، أمان، قابلية قراءة، تعامل مع الأخطاء) غير اللي طلبه المستخدم بالظبط، اذكرها كنصيحة مختصرة بعد التعديل، من غير ما تطبقها من نفسك لو ملهاش علاقة مباشرة بالطلب.
+- الجودة أهم من السرعة: خد وقتك اللازم عشان تحلل وتوصل لحل نضيف وصحيح، ولا تستعجل برد سطحي عشان بس تخلص.
+- لو الطلب غامض أو محتاج توضيح جوهري لتنفيذه صح، اسأل سؤال واحد قصير ومحدد، أو نفّذ أفضل تفسير منطقي واذكر افتراضك في جملة قصيرة.
+
 عند التعامل مع الملفات:
-- أنت الآن تعمل كنموذج مخصص للبرمجة. أي كود تكتبه أو تعدّله لن يُعرض كنص داخل الشات، بل سيُستخرج تلقائياً ويُرسل للمستخدم كملف قابل للتحميل مباشرة.
+- أي كود تكتبه أو تعدّله لن يُعرض كنص داخل الشات، بل سيُستخرج تلقائياً ويُرسل للمستخدم كملف قابل للتحميل مباشرة.
 - قاعدة صارمة جداً: لو المستخدم رفع ملف كود وطلب تعديله أو إصلاحه أو إضافة شيء إليه، يجب أن يكون ردك هو **الملف كاملاً من أول سطر لآخر سطر بعد التعديل**، وليس فقط الجزء أو الدالة أو السطور التي تغيّرت. لا تكتفِ أبداً بعرض مقتطف أو ملخص للتعديل، ولا تحذف أي جزء من الملف الأصلي لم يتغيّر — انسخه كما هو ودمجه مع التعديل الجديد في نفس الملف الكامل.
 - ابدأ ردك مباشرة ببلوك الكود الكامل (\`\`\`) أولاً قبل أي شرح، حتى لو الملف طويل، مع تحديد اسم اللغة بعد علامات الاقتباس مباشرة، ولا تقسّمه لأكثر من بلوك واحد. اكتب الشرح المختصر بعد بلوك الكود، ليس قبله.
-- لو الملف طويل جداً، اختصر الشرح أو احذفه تماماً وركّز كل مساحتك على إخراج الملف كاملاً؛ اكتمال الملف أهم بكثير من وجود شرح.`;
+- بعد بلوك الكود، اكتب دايماً فقرة قصيرة بعنوان ضمني: (1) ايه اللي لاحظته في الملف، (2) ايه اللي عدّلته وليه، (3) أي نصيحة إضافية لو فيه.
+- لو الملف طويل جداً، اختصر الشرح النصي فقط، لكن خلي التحليل والتعديل نفسه دقيق ومكتمل، وخلي إخراج الملف كاملاً هو الأولوية القصوى.`;
     const sysPrompt=`أنت ${SITE_NAME}، مساعد ذكاء اصطناعي متطور. اسمك ${SITE_NAME} وليس ChatGPT أو Claude أو Gemini أو أي مساعد آخر.
 
 معلومات عنك:
 - اسمك: ${SITE_NAME}
 - مطورك: Mahmoud Ahmed Saeed
-- مهمتك: مساعدة المستخدم في البرمجة، الدراسة، تحليل الصور والملفات، الكتابة، والإجابة عن مختلف الأسئلة
+- مهمتك: مساعدة المستخدم في البرمجة (فهم الأكواد، تشخيص المشاكل، إصلاح الأخطاء، اقتراح تحسينات، وإعطاء نصائح هندسية حقيقية)، الدراسة، تحليل الصور والملفات، الكتابة، والإجابة عن مختلف الأسئلة
 
 شخصيتك:
 - ودود ومحترم
@@ -1396,7 +1423,7 @@ ${useCodeModel?codeFilePrompt:`
     if(useCodeModel){
       // وضع البرمجة: gemma + الموديل الأساسي بتاع الكود يشتغلوا مع بعض بالتوازي على نفس الطلب،
       // وبعدين يتدمجوا في رد نهائي واحد أقوى (شوف getCollaborativeCodeResponse فوق)
-      const{full:collabFull}=await getCollaborativeCodeResponse(apiMsgs,8000,onPartial);
+      const{full:collabFull}=await getCollaborativeCodeResponse(apiMsgs,16000,onPartial);
       full=collabFull;
     }else{
       const{full:streamedFull}=await streamModelWithFallback('general',{
@@ -1415,7 +1442,7 @@ ${useCodeModel?codeFilePrompt:`
           try{
             const retryMsgs=[...apiMsgs,{role:'assistant',content:full},{role:'user',content:'الرد اللي رجعته مش الملف كاملاً، فيه جزء ناقص أو مختصر. أرسل الملف كاملاً من أول سطر لآخر سطر بعد التعديل داخل بلوك كود واحد فقط، ابدأ به مباشرة قبل أي شرح، ولا تحذف أو تختصر أي جزء من الملف الأصلي لم يتغيّر.'}];
             const{res:retryRes}=await callModelWithFallback('code',{
-              messages:retryMsgs,temperature:0.2,max_tokens:8000,top_p:1,stream:false
+              messages:retryMsgs,temperature:0.2,max_tokens:16000,top_p:1,stream:false
             });
             {
               const retryData=await retryRes.json();
@@ -1453,11 +1480,22 @@ function updateConv(){
   const c=getConv();if(c){c.messages=state.messages;c.updatedAt=Date.now();if(c.title==='محادثة جديدة'){const u=state.messages.find(m=>m.role==='user');if(u)c.title=truncate(u.content,50)}}renderSidebar();renderMobileList();saveState()
 }
 
-function showTyping(show){
+// showTyping(true, 'نص الحالة الحالية') بيعرض فقاعة فيها النقاط المتحركة + جملة قصيرة
+// بتوصف اللي بيحصل فعلياً دلوقتي (بدل ما تفضل نقاط عايمة من غير أي توضيح).
+// setStatus(text) بتحدّث النص من غير ما تعيد بناء الفقاعة، ولو الفقاعة مش ظاهرة أصلاً بتظهرها.
+function showTyping(show,status){
   const existing=chatMessages.querySelector('.typing');
-  if(show&&!existing){const div=document.createElement('div');div.className='typing';div.innerHTML=`<div class="msg-avatar ai">✦</div><div class="typing-dots"><span class="typing-dot"></span><span class="typing-dot"></span><span class="typing-dot"></span></div>`;chatMessages.appendChild(div);scrollToBottom()}
-  else if(!show&&existing)existing.remove()
+  if(show){
+    if(!existing){
+      const div=document.createElement('div');div.className='typing';
+      div.innerHTML=`<div class="msg-avatar ai">✦</div><div class="typing-bubble"><div class="typing-dots"><span class="typing-dot"></span><span class="typing-dot"></span><span class="typing-dot"></span></div><div class="typing-status">${escHtml(status||'جاري التفكير...')}</div></div>`;
+      chatMessages.appendChild(div);scrollToBottom();
+    }else if(status){
+      const st=existing.querySelector('.typing-status');if(st)st.textContent=status;scrollToBottom();
+    }
+  }else if(!show&&existing)existing.remove();
 }
+function setStatus(text){showTyping(true,text)}
 
 function copyMsg(i){const msg=state.messages[i];if(!msg)return;navigator.clipboard.writeText(msg.content).catch(()=>{const ta=document.createElement('textarea');ta.value=msg.content;document.body.appendChild(ta);ta.select();document.execCommand('copy');document.body.removeChild(ta)});showToast('تم النسخ')}
 function retryMsg(){const userMsgs=state.messages.filter(m=>m.role==='user');if(!userMsgs.length)return;const last=userMsgs[userMsgs.length-1];if(state.messages[state.messages.length-1]?.role==='assistant')state.messages.pop();renderMessages();saveState();doSend(last.content,last.files||[],last.images||[])}
