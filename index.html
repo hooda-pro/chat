@@ -335,6 +335,26 @@ header{
 /* ===== FILE UPLOAD MODAL ===== */
 .overlay{position:fixed;inset:0;z-index:150;background:rgba(0,0,0,.6);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);display:none;animation:fadeIn .2s}
 .overlay.show{display:block}
+
+/* ===== VOICE CALL ===== */
+@keyframes orbPulse{0%,100%{transform:scale(1);box-shadow:0 0 0 0 rgba(99,102,241,.4)}50%{transform:scale(1.06);box-shadow:0 0 0 24px rgba(99,102,241,0)}}
+@keyframes orbListen{0%,100%{transform:scale(1)}50%{transform:scale(1.12)}}
+#callOverlay{position:fixed;inset:0;z-index:250;background:var(--bg);display:none;flex-direction:column;align-items:center;justify-content:center;gap:28px;direction:rtl;padding:24px}
+#callOverlay.show{display:flex}
+.call-orb-wrap{position:relative;width:180px;height:180px;display:flex;align-items:center;justify-content:center}
+.call-orb{width:140px;height:140px;border-radius:50%;background:linear-gradient(135deg,var(--primary),var(--purple),var(--pink));display:flex;align-items:center;justify-content:center;font-size:56px;animation:orbPulse 2.4s ease-in-out infinite;transition:transform .2s}
+.call-orb-wrap.listening .call-orb{animation:orbListen 1s ease-in-out infinite}
+.call-orb-wrap.speaking .call-orb{animation:orbPulse 1.1s ease-in-out infinite}
+.call-status{font-size:16px;color:var(--text2);text-align:center;min-height:24px}
+.call-transcript{font-size:14px;color:var(--text3);text-align:center;max-width:480px;min-height:20px;line-height:1.6}
+.call-controls{display:flex;align-items:center;gap:16px;margin-top:8px}
+.call-btn{width:60px;height:60px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:24px;cursor:pointer;transition:all .2s;background:var(--bg3);color:var(--text);border:1px solid var(--border)}
+.call-btn:hover{background:var(--bg4)}
+.call-btn.end{background:#ef4444;color:#fff;border-color:transparent}
+.call-btn.end:hover{background:#dc2626}
+.call-btn.muted{background:#ef4444;color:#fff;border-color:transparent}
+.call-hint{font-size:12px;color:var(--text3);text-align:center;max-width:320px}
+
 .modal{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:151;width:calc(100% - 32px);max-width:500px;max-height:90vh;overflow-y:auto;background:var(--bg2);border:1px solid var(--border);border-radius:var(--r3);padding:24px;box-shadow:0 25px 60px rgba(0,0,0,.4);display:none;animation:fadeIn .25s}
 .modal.show{display:block}
 .modal-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px}
@@ -476,6 +496,7 @@ header{
           <button class="h-toggle" id="dtNewBtn" title="محادثة جديدة (Ctrl+N)">＋</button>
           <span class="h-kbd">Ctrl+N</span>
         </div>
+        <button class="theme-btn" id="callBtn" title="مكالمة صوتية">🎙️</button>
         <button class="theme-btn" id="themeToggle">☀️</button>
       </div>
     </header>
@@ -550,6 +571,18 @@ header{
   </div>
 </div>
 <input type="file" id="hiddenImageInput" multiple style="display:none" accept="image/png,image/jpeg,image/webp,image/gif">
+
+<!-- ===== VOICE CALL OVERLAY ===== -->
+<div id="callOverlay">
+  <div class="call-orb-wrap" id="callOrbWrap"><div class="call-orb" id="callOrb">✦</div></div>
+  <div class="call-status" id="callStatus">جاري التحضير...</div>
+  <div class="call-transcript" id="callTranscript"></div>
+  <div class="call-controls">
+    <button class="call-btn" id="callMuteBtn" title="كتم الميكروفون">🎤</button>
+    <button class="call-btn end" id="callEndBtn" title="إنهاء المكالمة">📞</button>
+  </div>
+  <div class="call-hint">المكالمة الصوتية بتستخدم ميزة التعرف على الصوت والنطق المدمجة في المتصفح — اتكلم وسيبه يرد عليك صوتياً</div>
+</div>
 
 <script>
 // ===== CONFIG =====
@@ -638,6 +671,7 @@ const uploadOverlay=$('uploadOverlay'),uploadModal=$('uploadModal'),uploadClose=
 const dropzone=$('dropzone'),fileInput=$('fileInput'),imageInput=$('imageInput'),filesBtn=$('filesBtn'),imagesBtn=$('imagesBtn');
 const selectedFilesDiv=$('selectedFiles'),uploadError=$('uploadError'),hiddenImageInput=$('hiddenImageInput');
 const dtNewBtn=$('dtNewBtn'),toast=$('toast');
+const callBtn=$('callBtn'),callOverlay=$('callOverlay'),callOrbWrap=$('callOrbWrap'),callStatus=$('callStatus'),callTranscript=$('callTranscript'),callMuteBtn=$('callMuteBtn'),callEndBtn=$('callEndBtn');
 
 // Mobile
 const mobileSheet=$('mobileSheet'),msClose=$('msClose'),msSearch=$('msSearch'),msList=$('msList'),msNewBtn=$('msNewBtn');
@@ -1690,6 +1724,108 @@ modelSwitcher.querySelectorAll('.model-pill').forEach(p=>{
     const labels={auto:'الوضع التلقائي',gpt:'GPT العام',code:'نموذج البرمجة'};
     showToast(`تم التحويل إلى ${labels[state.selectedModel]}`);
   });
+});
+
+// ===== المكالمة الصوتية =====
+// ملاحظة مهمة بخصوص مفتاح NVIDIA اللي اتبعت في الشات: عمداً ملحقتوش هنا في كود
+// الواجهة. النماذج الصوتية بتاعة NVIDIA (Riva/Nemotron ASR و TTS) بتتنادى فعلياً
+// عبر gRPC (grpc.nvcf.nvidia.com) مش REST عادي، يعني المتصفح مش هيقدر يكلمها
+// مباشرة، ولازم أي مفتاح زي ده يفضل سيرفر-سايد بس (جوه الـ Worker كمتغير سري)
+// زي باقي المفاتيح في الملف ده — حط أي مفتاح أبداً في ملف الواجهة أو أي مكان
+// المستخدم يقدر يشوفه (View Source)، بالظبط نفس المشكلة اللي اتحلت فوق.
+// البديل اللي شغال فعلاً دلوقتي من غير أي مفتاح ولا سيرفر إضافي: التعرف على
+// الصوت والنطق المدمجين في المتصفح نفسه (Web Speech API)، وبيدخل بيانات المستخدم
+// المنطوقة في نفس مسار doSend العادي (يعني بيستفيد من كل حاجة: fallback الموديلات،
+// المهلة الطويلة، زرار الإيقاف... إلخ) وبعدين بينطق رد الموديل بصوت.
+const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+const synth=window.speechSynthesis;
+let callState={active:false,muted:false,recognition:null,processing:false};
+function pickArabicVoice(){
+  const voices=synth?synth.getVoices():[];
+  return voices.find(v=>v.lang&&v.lang.toLowerCase().startsWith('ar'))||voices.find(v=>v.lang&&v.lang.toLowerCase().startsWith('en'))||voices[0]||null;
+}
+function stripForSpeech(t){
+  if(!t)return'';
+  return t.replace(/```[\s\S]*?```/g,' تم إرفاق كود، تقدر تشوفه في الشات. ')
+    .replace(/`[^`]+`/g,'')
+    .replace(/!\[[^\]]*\]\([^)]+\)/g,'')
+    .replace(/\[([^\]]+)\]\([^)]+\)/g,'$1')
+    .replace(/[*_#>]+/g,'')
+    .replace(/\s+/g,' ').trim();
+}
+function setCallStatus(text){callStatus.textContent=text}
+function setOrbMode(mode){callOrbWrap.classList.remove('listening','speaking');if(mode)callOrbWrap.classList.add(mode)}
+
+function openCall(){
+  if(!SR){showToast('المتصفح ده مش بيدعم التعرف على الصوت، جرب Chrome أو Edge');return}
+  callState.active=true;callState.muted=false;
+  callMuteBtn.classList.remove('muted');callMuteBtn.textContent='🎤';
+  callOverlay.classList.add('show');callTranscript.textContent='';
+  startCallListening();
+}
+function closeCall(){
+  callState.active=false;
+  try{callState.recognition?.abort()}catch(e){}
+  synth?.cancel();
+  if(state.isLoading)stopGeneration();
+  callOverlay.classList.remove('show');setOrbMode('');
+}
+function startCallListening(){
+  if(!callState.active||callState.muted||callState.processing)return;
+  let rec;
+  try{rec=new SR()}catch(e){showToast('تعذر تشغيل التعرف على الصوت');return}
+  callState.recognition=rec;
+  rec.lang='ar-SA';rec.continuous=false;rec.interimResults=true;rec.maxAlternatives=1;
+  setOrbMode('listening');setCallStatus('بتسمعك... اتكلم عادي');callTranscript.textContent='';
+  rec.onresult=(e)=>{
+    let interim='',final='';
+    for(let i=e.resultIndex;i<e.results.length;i++){
+      const chunk=e.results[i][0].transcript;
+      if(e.results[i].isFinal)final+=chunk;else interim+=chunk;
+    }
+    callTranscript.textContent=final||interim;
+    if(final.trim()){try{rec.stop()}catch(err){}processCallTranscript(final.trim())}
+  };
+  rec.onerror=(e)=>{
+    if(e.error==='no-speech'||e.error==='aborted')return; // هيتصفّر تلقائياً من onend
+    if(e.error==='not-allowed'||e.error==='service-not-allowed'){showToast('محتاج إذن استخدام الميكروفون');closeCall();return}
+  };
+  rec.onend=()=>{
+    if(callState.active&&!callState.muted&&!callState.processing&&!synth?.speaking)startCallListening();
+  };
+  try{rec.start()}catch(e){}
+}
+async function processCallTranscript(text){
+  if(!text){startCallListening();return}
+  callState.processing=true;setOrbMode('');setCallStatus('جاري التفكير...');
+  const beforeCount=state.messages.length;
+  await doSend(text,[],[]);
+  const reply=state.messages.slice(beforeCount).reverse().find(m=>m.role==='assistant');
+  callState.processing=false;
+  if(!callState.active)return;
+  if(reply&&reply.content)speakCallReply(reply.content);
+  else startCallListening();
+}
+function speakCallReply(text){
+  const clean=stripForSpeech(text);
+  if(!synth||!clean){startCallListening();return}
+  synth.cancel();
+  const u=new SpeechSynthesisUtterance(clean);
+  const v=pickArabicVoice();if(v)u.voice=v;
+  u.lang=v?.lang||'ar-SA';u.rate=1;
+  setOrbMode('speaking');setCallStatus('بيرد عليك...');
+  u.onend=()=>{if(callState.active&&!callState.muted)startCallListening()};
+  u.onerror=()=>{if(callState.active&&!callState.muted)startCallListening()};
+  synth.speak(u);
+}
+callBtn.addEventListener('click',openCall);
+callEndBtn.addEventListener('click',closeCall);
+callMuteBtn.addEventListener('click',()=>{
+  callState.muted=!callState.muted;
+  callMuteBtn.classList.toggle('muted',callState.muted);
+  callMuteBtn.textContent=callState.muted?'🔇':'🎤';
+  if(callState.muted){try{callState.recognition?.abort()}catch(e){}setOrbMode('');setCallStatus('الميكروفون متكتوم')}
+  else if(callState.active&&!synth?.speaking)startCallListening();
 });
 
 // ===== INIT =====
