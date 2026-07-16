@@ -263,6 +263,14 @@ header{
 .typing-dot:nth-child(2){animation-delay:.2s}
 .typing-dot:nth-child(3){animation-delay:.4s}
 
+/* ===== MODE SELECTOR ===== */
+.mode-selector{display:flex;gap:4px;padding:8px 16px;flex-shrink:0;background:var(--bg);border-top:1px solid var(--border);justify-content:center}
+.mode-btn{padding:6px 16px;border-radius:20px;font-size:13px;font-weight:500;cursor:pointer;transition:all .3s;background:var(--bg3);color:var(--text3);border:1px solid transparent;min-height:32px;display:flex;align-items:center;gap:4px}
+.mode-btn:hover{background:var(--bg4);color:var(--text2)}
+.mode-btn.active{background:rgba(99,102,241,.12);border-color:rgba(99,102,241,.25);color:var(--primary3)}
+.mode-btn.code-mode.active{background:rgba(147,51,234,.12);border-color:rgba(147,51,234,.25);color:#a78bfa}
+.light .mode-btn.code-mode.active{color:#7c3aed}
+.mode-btn.code-mode.active{background:rgba(147,51,234,.12);border-color:rgba(147,51,234,.25)}
 /* ===== MOBILE BOTTOM NAV ===== */
 #bottomNav{
   display:flex;align-items:center;justify-content:space-around;
@@ -296,20 +304,6 @@ header{
 .attach-chip .attach-name{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:110px}
 .attach-chip .attach-remove{background:none;color:var(--text3);cursor:pointer;font-size:13px;padding:2px;line-height:1;flex-shrink:0}
 .attach-chip .attach-remove:hover{color:var(--text)}
-
-/* ===== MODEL SWITCHER ===== */
-.model-switcher{display:flex;align-items:center;gap:6px;padding:0 8px 6px;flex-wrap:wrap}
-.model-pill{display:flex;align-items:center;gap:5px;background:var(--bg3);border:1px solid var(--border);border-radius:999px;padding:5px 12px;font-size:12px;color:var(--text2);cursor:pointer;transition:all .2s;user-select:none}
-.model-pill:hover{border-color:var(--primary3);color:var(--text)}
-.model-pill.active{background:linear-gradient(to left,var(--primary2),var(--purple));border-color:transparent;color:#fff;font-weight:600}
-/* ===== GENERATED FILE CHIP (AI output as a file, not inline code) ===== */
-.msg-genfile{display:flex;align-items:center;gap:10px;background:var(--bg3);border:1px solid var(--border);border-radius:12px;padding:10px 12px;margin-top:8px;cursor:pointer;transition:all .2s;max-width:280px}
-.msg-genfile:hover{border-color:var(--primary3);background:var(--bg4)}
-.msg-genfile .gf-icon{font-size:22px;flex-shrink:0}
-.msg-genfile .gf-info{flex:1;min-width:0}
-.msg-genfile .gf-name{font-size:13px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.msg-genfile .gf-sub{font-size:11px;color:var(--text3);margin-top:2px}
-.msg-genfile .gf-dl{font-size:16px;color:var(--primary3);flex-shrink:0}
 .chat-send-btn{padding:10px 12px;border-radius:10px;cursor:pointer;transition:all .3s;font-size:18px;line-height:1;background:var(--bg3);color:var(--text3);flex-shrink:0;min-width:42px;min-height:42px;display:flex;align-items:center;justify-content:center}
 .chat-send-btn.active{background:linear-gradient(to left,var(--primary2),var(--purple));color:#fff;box-shadow:0 0 20px rgba(99,102,241,.2)}
 .chat-send-btn:disabled{opacity:.4;cursor:default}
@@ -475,6 +469,10 @@ header{
         <span class="edit-bar-label">✎ تعديل الرسالة</span>
         <button class="edit-bar-cancel" id="editCancel">✕</button>
       </div>
+      <div class="mode-selector" id="modeSelector">
+        <button class="mode-btn active" data-mode="text">💬 عام</button>
+        <button class="mode-btn code-mode" data-mode="code">💻 برمجة</button>
+      </div>
       <div class="chat-input-wrap" id="inputWrap">
         <div class="chat-input-inner">
           <div class="attach-preview" id="attachPreview"></div>
@@ -485,11 +483,6 @@ header{
             </div>
             <textarea class="chat-input-field" id="chatInput" rows="1" placeholder="اكتب رسالتك..." dir="rtl"></textarea>
             <button class="chat-send-btn" id="sendBtn" disabled>➤</button>
-          </div>
-          <div class="model-switcher" id="modelSwitcher">
-            <div class="model-pill" data-model="auto" title="يختار تلقائياً حسب الرسالة">🤖 تلقائي</div>
-            <div class="model-pill" data-model="gpt" title="نموذج المحادثة العامة">💬 GPT عام</div>
-            <div class="model-pill" data-model="code" title="نموذج مخصص للبرمجة — يرسل الكود كملف">💻 برمجة</div>
           </div>
         </div>
       </div>
@@ -567,22 +560,21 @@ function fmtSize(b){if(!b)return'0 B';const k=1024,s=['B','KB','MB','GB'];const 
 function escHtml(t){const d=document.createElement('div');d.textContent=t;return d.innerHTML}
 
 function saveState(){
-  try{localStorage.setItem('novamind-state',JSON.stringify({conversations:state.conversations,currentId:state.currentId,theme:state.theme,userName:state.userName,selectedModel:state.selectedModel}))}catch(e){}
+  try{localStorage.setItem('novamind-state',JSON.stringify({conversations:state.conversations,currentId:state.currentId,theme:state.theme,userName:state.userName,chatMode:state.chatMode}))}catch(e){}
 }
 function loadState(){
-  try{const d=JSON.parse(localStorage.getItem('novamind-state'));if(d){state.conversations=d.conversations||[];state.currentId=d.currentId||null;state.theme=d.theme||'dark';state.userName=d.userName||'';state.selectedModel=d.selectedModel||'auto'}}catch(e){}
+  try{const d=JSON.parse(localStorage.getItem('novamind-state'));if(d){state.conversations=d.conversations||[];state.currentId=d.currentId||null;state.theme=d.theme||'dark';state.userName=d.userName||'';state.chatMode=d.chatMode||'text'}}catch(e){}
 }
 function getConv(){return state.conversations.find(c=>c.id===state.currentId)}
 
 // ===== STATE =====
-let state={userName:'',theme:'dark',conversations:[],currentId:null,messages:[],isLoading:false,sidebarOpen:false,streamingContent:'',editIndex:-1,selectedModel:'auto'};
+let state={userName:'',theme:'dark',conversations:[],currentId:null,messages:[],isLoading:false,sidebarOpen:false,streamingContent:'',editIndex:-1,chatMode:'text'};
 
 // ===== DOM =====
 const nameInput=$('nameInput'),startBtn=$('startBtn'),welcome=$('welcome'),app=$('app');
 const sidebar=$('sidebar'),sidebarToggle=$('sidebarToggle'),sidebarClose=$('sidebarClose'),sidebarUser=$('sidebarUser');
 const chatList=$('chatList'),searchChats=$('searchChats'),newChatBtn=$('newChatBtn'),logoutBtn=$('logoutBtn');
 const chatMessages=$('chatMessages'),chatInput=$('chatInput'),sendBtn=$('sendBtn'),themeToggle=$('themeToggle'),attachPreview=$('attachPreview');
-const modelSwitcher=$('modelSwitcher');
 const editBar=$('editBar'),editCancel=$('editCancel');
 const fileBtn=$('fileBtn'),imageBtn=$('imageBtn');
 const uploadOverlay=$('uploadOverlay'),uploadModal=$('uploadModal'),uploadClose=$('uploadClose'),uploadCancel=$('uploadCancel'),uploadConfirm=$('uploadConfirm');
@@ -623,11 +615,18 @@ startBtn.addEventListener('click',handleStart);
 nameInput.addEventListener('keydown',e=>{if(e.key==='Enter')handleStart()});
 
 // ===== INIT =====
+let modeSelector=$('modeSelector');
 function initApp(){
-  loadState();applyTheme();app.classList.add('show');sidebarUser.textContent=state.userName;
+  loadState();applyTheme();updateModeUI();app.classList.add('show');sidebarUser.textContent=state.userName;
   if(state.conversations.length===0)newConversation();
   else{renderSidebar();renderMobileList();if(state.currentId){const c=getConv();if(c)state.messages=c.messages}else{const c=state.conversations[0];state.currentId=c.id;state.messages=c.messages}renderMessages();renderSidebar();renderMobileList()}
   chatInput.focus();updateDeviceUI();
+  modeSelector.querySelectorAll('.mode-btn').forEach(btn=>{
+    btn.addEventListener('click',()=>{state.chatMode=btn.dataset.mode;updateModeUI();saveState();showToast(`وضع ${btn.dataset.mode==='code'?'البرمجة':'العام'}`)});
+  });
+}
+function updateModeUI(){
+  modeSelector.querySelectorAll('.mode-btn').forEach(b=>b.classList.toggle('active',b.dataset.mode===state.chatMode));
 }
 
 // ===== THEME =====
@@ -697,7 +696,7 @@ function selectConversation(id){
 }
 
 function newConversation(){
-  const conv={id:genId(),title:'محادثة جديدة',messages:[{id:'welcome',role:'assistant',content:`مرحباً يا ${state.userName}، كيف يمكنني مساعدتك اليوم؟`,timestamp:Date.now()}],createdAt:Date.now(),updatedAt:Date.now()};
+  const conv={id:genId(),title:'محادثة جديدة',messages:[{id:'welcome',role:'assistant',content:`مرحباً يا ${state.userName}، اختر الوضع من الأسفل: 💬 عام للدردشة أو 💻 برمجة للكود.`,timestamp:Date.now()}],createdAt:Date.now(),updatedAt:Date.now()};
   state.conversations.unshift(conv);state.currentId=conv.id;state.messages=conv.messages;
   renderMessages();renderSidebar();renderMobileList();saveState();
   if(isMobile())closeMobileSheet();showToast('محادثة جديدة');
@@ -755,7 +754,7 @@ logoutBtn.addEventListener('click',()=>{
 function renderMessages(){
   chatMessages.innerHTML='';
   if(state.messages.length===1&&state.messages[0].id==='welcome'){
-    chatMessages.innerHTML=`<div class="chat-welcome"><div class="chat-welcome-inner"><div class="chat-welcome-logo"><div class="chat-welcome-logo-inner">✦</div></div><h2 class="chat-welcome-title"><span>أهلاً بك يا ${state.userName}</span></h2><p class="chat-welcome-desc">أنا <strong>${SITE_NAME}</strong>، مساعدك الذكي. يمكنني مساعدتك في البرمجة، الدراسة، تحليل الصور والملفات، الكتابة، والإجابة عن مختلف الأسئلة.</p></div></div>`;
+    chatMessages.innerHTML=`<div class="chat-welcome"><div class="chat-welcome-inner"><div class="chat-welcome-logo"><div class="chat-welcome-logo-inner">✦</div></div><h2 class="chat-welcome-title"><span>أهلاً بك يا ${state.userName}</span></h2><p class="chat-welcome-desc">أنا <strong>${SITE_NAME}</strong>. اختر الوضع المناسب من الأسفل:<br>💬 <strong>عام</strong> للإجابة عن الأسئلة والدراسة والكتابة<br>💻 <strong>برمجة</strong> لكتابة وتعديل الكود وإرجاع الملفات كاملة</p></div></div>`;
     return;
   }
   state.messages.forEach((msg,i)=>{renderMsg(msg,i)});
@@ -771,7 +770,6 @@ function renderMsg(msg,i){
   let html=`<div class="msg-avatar ${isUser?'user':'ai'}">${isUser?'👤':'✦'}</div><div class="msg-content"><div class="msg-bubble">${content}</div>`;
   if(msg.images&&msg.images.length>0){html+=`<div class="msg-imgs">`;msg.images.forEach(img=>{html+=`<img src="data:${img.mime||'image/jpeg'};base64,${img.data}" alt="صورة" loading="lazy">`});html+=`</div>`}
   if(msg.files&&msg.files.length>0){html+=`<div class="msg-files">`;msg.files.forEach(f=>{html+=`<div class="msg-file"><span>📄</span><span class="name">${escHtml(f.name)}</span><span class="size">${fmtSize(f.size)}</span></div>`});html+=`</div>`}
-  if(msg.genFiles&&msg.genFiles.length>0){msg.genFiles.forEach((gf,gi)=>{const gid=`${msg.id}_${gi}`;genFileStore[gid]=gf;html+=`<div class="msg-genfile" data-genfile="${gid}"><span class="gf-icon">📦</span><div class="gf-info"><div class="gf-name">${escHtml(gf.name)}</div><div class="gf-sub">اضغط للتحميل</div></div><span class="gf-dl">⬇</span></div>`});}
   html+=`<div class="msg-actions"><span class="msg-time">${fmtTime(msg.timestamp)}</span>`;
   if(!isUser&&msg.id!=='welcome'){html+=`<button class="msg-action" data-copy="${i}">📋</button>`;if(i===state.messages.length-1)html+=`<button class="msg-action" data-retry="${i}">🔄</button>`}
   if(isUser)html+=`<button class="msg-action" data-edit="${i}">✎</button>`;
@@ -793,29 +791,8 @@ function scrollToBottom(){setTimeout(()=>{chatMessages.scrollTop=chatMessages.sc
 // ===== MARKDOWN =====
 let codeBlockStore={};
 let codeBlockCounter=0;
-let genFileStore={};
-chatMessages.addEventListener('click',e=>{
-  const chip=e.target.closest('.msg-genfile');if(!chip)return;
-  const gf=genFileStore[chip.dataset.genfile];if(!gf)return;
-  downloadTextFile(gf.content,gf.name);
-});
 const LANG_EXT={python:'py',py:'py',javascript:'js',js:'js',jsx:'jsx',typescript:'ts',ts:'ts',tsx:'tsx',java:'java',c:'c',cpp:'cpp','c++':'cpp',csharp:'cs',cs:'cs',go:'go',golang:'go',rust:'rs',rs:'rs',ruby:'rb',rb:'rb',php:'php',bash:'sh',sh:'sh',shell:'sh',zsh:'sh',sql:'sql',html:'html',css:'css',scss:'scss',json:'json',xml:'xml',yaml:'yaml',yml:'yaml',markdown:'md',md:'md',swift:'swift',kotlin:'kt',dart:'dart',r:'r',lua:'lua',vue:'vue'};
 function guessExt(lang){return LANG_EXT[(lang||'').toLowerCase()]||'txt'}
-// يستخرج بلوكات الكود من رد نموذج البرمجة ويحوّلها لملفات قابلة للتحميل بدل عرضها كنص طويل في الشات
-function extractCodeAsFiles(text,originalFiles){
-  const blocks=[];
-  const stripped=text.replace(/```(\w*)\n([\s\S]*?)```/g,(m,lang,code)=>{blocks.push({lang:(lang||'').toLowerCase(),code});return''});
-  if(!blocks.length)return{text,genFiles:[]};
-  const genFiles=blocks.map((b,i)=>{
-    let name;
-    if(originalFiles&&originalFiles.length===blocks.length)name=originalFiles[i].name;
-    else if(originalFiles&&originalFiles.length===1&&blocks.length===1)name=originalFiles[0].name;
-    else name=`${blocks.length>1?`ملف_${i+1}`:'الكود'}.${guessExt(b.lang)}`;
-    return{name,content:b.code,lang:b.lang};
-  });
-  const cleanText=stripped.replace(/\n{3,}/g,'\n\n').trim();
-  return{text:cleanText,genFiles};
-}
 function downloadTextFile(content,filename){
   const blob=new Blob([content],{type:'text/plain;charset=utf-8'});
   const url=URL.createObjectURL(blob);
@@ -976,23 +953,31 @@ async function doSend(content,files,images){
       userMsg.imageDescriptions=await analyzeImages(images);
       saveState();
     }
-    // اختيار النموذج: لو المستخدم اختار نموذجاً بنفسه من المُبدّل، نلتزم به ولا نستخدم أي نموذج آخر.
-    // فقط في وضع "تلقائي" نكتشف نوع الطلب (برمجة أو عام) بأنفسنا.
-    const useCodeModel = state.selectedModel==='code' ? true
-                        : state.selectedModel==='gpt' ? false
-                        : (isCodingRequest(content)||hasCodeFile(files));
-    const codeFilePrompt=`
+    const isCodeMode=state.chatMode==='code';
+    const sysPrompt=isCodeMode?
+`أنت ${SITE_NAME}، مساعد برمجة متطور. اسمك ${SITE_NAME} أنت خبير بجميع لغات البرمجة.
+
+قاعدة أساسية:
+1. اقرأ الكود بالكامل وافهمه جيداً
+2. نفذ التعديلات المطلوبة بالضبط
+3. أخرج الملف المعدل كاملاً في CODE BLOCK واحد فقط (\`\`\`)
+4. لا تقطع الكود أو تختصره - أخرجه كاملاً
+5. اشرح التغييرات باختصار قبل أو بعد الكود
+
 عند التعامل مع الملفات:
-- أنت الآن تعمل كنموذج مخصص للبرمجة. أي كود تكتبه أو تعدّله لن يُعرض كنص داخل الشات، بل سيُستخرج تلقائياً ويُرسل للمستخدم كملف قابل للتحميل مباشرة.
-- ضع الكود الكامل (بعد التعديل أو الإنشاء) داخل بلوك كود واحد فقط (\`\`\`) مع تحديد اسم اللغة بعد علامات الاقتباس مباشرة، ولا تقسّمه لأكثر من بلوك.
-- إذا رفع المستخدم ملفاً وطلب تعديله أو إصلاحه أو إضافة شيء إليه، أرجع محتوى الملف كاملاً بعد التعديل (وليس جزءاً منه فقط) داخل نفس بلوك الكود، حتى تحل النسخة الجديدة محل الملف القديم عند التحميل.
-- اكتب أي شرح للتعديلات بإيجاز شديد خارج بلوك الكود فقط (قبله أو بعده)، لأن الشرح فقط هو ما سيظهر في الشات، أما الكود فسيصل للمستخدم كملف منفصل.`;
-    const sysPrompt=`أنت ${SITE_NAME}، مساعد ذكاء اصطناعي متطور. اسمك ${SITE_NAME} وليس ChatGPT أو Claude أو Gemini أو أي مساعد آخر.
+- إذا رفع المستخدم ملفاً وطلب تعديله، أعد الملف كاملاً بعد التعديل داخل بلوك كود واحد
+- لا تقتصر على عرض جزء من الملف فقط
+- المستخدم سيستخدم زر التحميل لتنزيل الملف المعدل
+
+المستخدم: ${state.userName}
+المطور: Mahmoud Ahmed Saeed`
+:
+`أنت ${SITE_NAME}، مساعد ذكاء اصطناعي متطور. اسمك ${SITE_NAME} وليس ChatGPT أو Claude أو Gemini أو أي مساعد آخر.
 
 معلومات عنك:
 - اسمك: ${SITE_NAME}
 - مطورك: Mahmoud Ahmed Saeed
-- مهمتك: مساعدة المستخدم في البرمجة، الدراسة، تحليل الصور والملفات، الكتابة، والإجابة عن مختلف الأسئلة
+- مهمتك: مساعدة المستخدم في الإجابة عن الأسئلة، الدراسة، الكتابة، وتحليل الملفات والصور
 
 شخصيتك:
 - ودود ومحترم
@@ -1000,15 +985,14 @@ async function doSend(content,files,images){
 - تخاطب المستخدم باسمه (${state.userName})
 - تقدم إجابات دقيقة ومفيدة باستخدام Markdown
 
+عند التعامل مع الملفات:
+- حلل الملف واشرح محتواه للمستخدم بلغة بسيطة
+- لا تعدل الملفات إلا إذا طلب المستخدم ذلك صراحةً
+
 تذكر دائماً:
 - أنت ${SITE_NAME} وليس ChatGPT أو Claude أو Gemini
 - لا تقل أبداً أنك تابع لـ OpenAI أو Google
-- أنت مساعد مستقل تم تطويره بواسطة Mahmoud Ahmed Saeed
-
-${useCodeModel?codeFilePrompt:`
-عند التعامل مع الملفات:
-- إذا احتاج الأمر لعرض كود قصير كمثال توضيحي، استخدم بلوك كود عادي.
-- ملفات المستخدم النصية موجودة في الرسالة بين علامات [الملف: ...]، استخدمها للإجابة على استفساره.`}`;
+- أنت مساعد مستقل تم تطويره بواسطة Mahmoud Ahmed Saeed`;
 
     const apiMsgs=[{role:'system',content:sysPrompt},...state.messages.map(m=>{
       if(m.role==='user'){
@@ -1022,9 +1006,9 @@ ${useCodeModel?codeFilePrompt:`
     })];
 
     state.streamingContent='';
-    const apiUrl=useCodeModel?'https://openrouter.ai/api/v1/chat/completions':'https://api.groq.com/openai/v1/chat/completions';
-    const apiKey=useCodeModel?OPENROUTER_API_KEY:GROQ_API_KEY;
-    const apiModel=useCodeModel?CODE_MODEL:GROQ_MODEL;
+    const apiUrl=isCodeMode?'https://openrouter.ai/api/v1/chat/completions':'https://api.groq.com/openai/v1/chat/completions';
+    const apiKey=isCodeMode?OPENROUTER_API_KEY:GROQ_API_KEY;
+    const apiModel=isCodeMode?CODE_MODEL:GROQ_MODEL;
     const res=await fetch(apiUrl,{
       method:'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${apiKey}`},
       body:JSON.stringify({model:apiModel,messages:apiMsgs,temperature:0.7,max_tokens:4096,top_p:1,stream:true})
@@ -1036,13 +1020,7 @@ ${useCodeModel?codeFilePrompt:`
       const chunk=decoder.decode(value);const lines=chunk.split('\n');
       for(const line of lines){if(line.startsWith('data: ')){const data=line.slice(6);if(data==='[DONE]')continue;try{const p=JSON.parse(data);const d=p.choices?.[0]?.delta?.content||'';full+=d;state.streamingContent=full;renderStreamingMsg()}catch{}}}
     }
-    let aiMsg;
-    if(useCodeModel){
-      const{text:cleanText,genFiles}=extractCodeAsFiles(full,files);
-      aiMsg={id:genId(),role:'assistant',content:cleanText||(genFiles.length?'✅ جهزت الكود ووضعته في ملف جاهز للتحميل.':full),timestamp:Date.now(),genFiles:genFiles.length?genFiles:undefined};
-    }else{
-      aiMsg={id:genId(),role:'assistant',content:full,timestamp:Date.now()};
-    }
+    const aiMsg={id:genId(),role:'assistant',content:full,timestamp:Date.now()};
     state.messages.push(aiMsg);updateConv();state.streamingContent='';renderMessages();saveState();
   }catch(err){
     const errMsg={id:genId(),role:'assistant',content:`عذراً، حدث خطأ: ${err.message}`,timestamp:Date.now()};
@@ -1124,26 +1102,10 @@ window.addEventListener('resize',()=>{
   if(!isMobile())closeMobileSheet();
 });
 
-// ===== MODEL SWITCHER =====
-function renderModelSwitcher(){
-  modelSwitcher.querySelectorAll('.model-pill').forEach(p=>{
-    p.classList.toggle('active',p.dataset.model===state.selectedModel);
-  });
-}
-modelSwitcher.querySelectorAll('.model-pill').forEach(p=>{
-  p.addEventListener('click',()=>{
-    state.selectedModel=p.dataset.model;
-    renderModelSwitcher();saveState();
-    const labels={auto:'الوضع التلقائي',gpt:'GPT العام',code:'نموذج البرمجة'};
-    showToast(`تم التحويل إلى ${labels[state.selectedModel]}`);
-  });
-});
-
 // ===== INIT =====
 initParticles();
 nameInput.focus();
 startBtn.disabled=true;
-renderModelSwitcher();
 </script>
 </body>
 </html>
