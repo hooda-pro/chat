@@ -574,9 +574,15 @@ const CONFIG={
     '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',
     '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'
   ],
-  // مفتاح NVIDIA (build.nvidia.com / integrate.api.nvidia.com) — بيُستخدم خصيصاً
-  // لموديل z-ai/glm-5.2 اللي بقى الموديل الأساسي لوضع الكود بدل nemotron-ultra
-  nvidiaApiKey:'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',
+  // ⚠️ integrate.api.nvidia.com (بتاع build.nvidia.com) مش بيدعم CORS، يعني أي
+  // fetch() منادي عليه *مباشرة* من المتصفح هيتحجب من المتصفح نفسه ويطلع
+  // "Failed to fetch" — ده مش باگ في مفتاحك ولا في الموديل، ده قيد من NVIDIA نفسها
+  // (لازم الطلب يعدي من سيرفر/proxy مش من جافاسكربت شغال جوه صفحة الموقع).
+  // عشان كده z-ai/glm-5.2 لازم يمر عبر proxy بسيط (Cloudflare Worker مجاني) بدل
+  // ما يتنادى عليه مباشرة من هنا. المفتاح الحقيقي اتنقل لجوه الـ Worker (متغير سري
+  // مش ظاهر في كود الموقع) — حط هنا رابط الـ Worker بتاعك بعد ما تعمل نشره (خطوات
+  // النشر في ملف nvidia-proxy-worker.js اللي جنب الملف ده).
+  nvidiaProxyUrl:'https://novamind-proxy.hooda2026g1.workers.dev',
   // موديلات مع بدائل احتياطية: لو موديل رئيسي اتلغى أو رجع خطأ 404/429،
   // النظام يجرب اللي بعده تلقائياً بدل ما يفشل الطلب بالكامل.
   models:{
@@ -587,7 +593,7 @@ const CONFIG={
   endpoints:{
     groq:'https://api.groq.com/openai/v1/chat/completions',
     openrouter:'https://openrouter.ai/api/v1/chat/completions',
-    nvidia:'https://integrate.api.nvidia.com/v1/chat/completions'
+    nvidia:'https://integrate.api.nvidia.com/v1/chat/completions' // سايبينه للمرجعية بس، مش بيتنادى عليه من المتصفح مباشرة دلوقتي
   }
 };
 // خريطة: بيرجع الـ endpoint ومفاتيح الـ API الصح لموديل معيّن. النظام القديم كان
@@ -595,7 +601,10 @@ const CONFIG={
 // بيتنادى عبر NVIDIA (endpoint ومفتاح مختلفين تماماً) بينما باقي موديلات الكود
 // لسه بتمشي عبر OpenRouter — فبقينا محتاجين نحدد المزوّد بالموديل نفسه مش بالـ kind بس.
 function getProviderFor(kind,model){
-  if(model==='z-ai/glm-5.2')return{endpoint:CONFIG.endpoints.nvidia,apiKeys:[CONFIG.nvidiaApiKey]};
+  // z-ai/glm-5.2: بيتنادى عبر الـ proxy (الـ Worker) اللي هو بيضيف مفتاح NVIDIA
+  // من جواه (سيرفر-سايد) ويرجّع الرد ومعاه CORS headers صح — عشان كده مفيش
+  // Authorization هنا خالص (apiKeys:['']) لأن الـ Worker مش محتاج مفتاح من المتصفح.
+  if(model==='z-ai/glm-5.2')return{endpoint:CONFIG.nvidiaProxyUrl,apiKeys:['']};
   if(kind==='code')return{endpoint:CONFIG.endpoints.openrouter,apiKeys:CONFIG.openrouterApiKeys};
   return{endpoint:CONFIG.endpoints.groq,apiKeys:[CONFIG.groqApiKey]};
 }
@@ -1431,11 +1440,16 @@ ${useCodeModel?codeFilePrompt:`
     })];
 
     state.streamingContent='';
-    const onPartial=(partial)=>{state.streamingContent=partial;renderStreamingMsg()};
+    const onPartial=(partial)=>{if(partial&&chatMessages.querySelector('.typing'))showTyping(false);state.streamingContent=partial;renderStreamingMsg()};
     let full;
     if(useCodeModel){
       // وضع البرمجة: gemma + الموديل الأساسي بتاع الكود يشتغلوا مع بعض بالتوازي على نفس الطلب،
       // وبعدين يتدمجوا في رد نهائي واحد أقوى (شوف getCollaborativeCodeResponse فوق)
+      // بنعرض حالة حقيقية بدل نقاط عايمة صامتة — بيوصف فعلاً اللي بيحصل (تحليل ثم كتابة ثم دمج)
+      // بدل ما يظهر الرد فجأة وكأنه جاهز مسبقاً.
+      setStatus(files.length?'جاري تحليل الملف المرفوع...':'جاري تحليل طلبك...');
+      await new Promise(r=>setTimeout(r,500));
+      setStatus('جاري إنشاء الكود الآن...');
       const{full:collabFull}=await getCollaborativeCodeResponse(apiMsgs,16000,onPartial);
       full=collabFull;
     }else{
