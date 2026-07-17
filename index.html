@@ -729,9 +729,25 @@ function getProviderFor(kind,model){
 // endpoint الـ REST الخام مباشرة بـ fetch، فلازم chat_template_kwargs يبقى في جذر الـ
 // body direct، لا يتلف جوه مفتاح اسمه extra_body — ده اللي كان بيسبب خطأ 400
 // "Unsupported parameter(s): `extra_body`".
-function getExtraParamsFor(model){
+// ⚠️ إضافة مهمة: z-ai/glm-5.2 عبر NVIDIA NIM محتاج enable_thinking:true صراحة في
+// chat_template_kwargs عشان "يفكر" فعلاً قبل ما يرد (من غيرها بيرد على طول من غير
+// أي مجهود تفكير إضافي حتى لو الموديل نفسه قادر عليه — ده كان سبب إحساس إنه "مش
+// بيستخدم كل طاقته" في البرمجة). reasoning_effort:'high' بيرفع مستوى التفكير لأقصى
+// درجة موثّقة لنفس العائلة (DeepSeek-V4/GLM-5.2 بيشتركوا في نفس الآلية). الموديل
+// بيرجّع تفكيره في حقل reasoning_content منفصل عن content، وإحنا أصلاً بنقرأ
+// content بس في streamModelWithFallback، فالمستخدم ميشوفش "الكلام الداخلي" ده،
+// بس النتيجة النهائية بتستفاد منه.
+// allowThinking=false: للطلبات الصغيرة اللي max_tokens بتاعها ضيق جداً (زي تحديد
+// رقم القطعة المطلوب تعديلها في performTargetedFileEdit)، لأن توكنز التفكير هتاكل
+// من نفس الميزانية الصغيرة وتخلي الرد يتقطع قبل ما يوصل للإجابة الفعلية.
+function getExtraParamsFor(model,{allowThinking=true}={}){
   if(model==='deepseek-ai/deepseek-v4-pro'){
     return{top_p:0.95,chat_template_kwargs:{thinking:false}};
+  }
+  if(model==='z-ai/glm-5.2'){
+    return allowThinking
+      ?{chat_template_kwargs:{enable_thinking:true,reasoning_effort:'high'}}
+      :{chat_template_kwargs:{enable_thinking:false}};
   }
   return{};
 }
@@ -921,7 +937,7 @@ function fetchWithTimeout(url,options={},timeoutMs=FETCH_TIMEOUT_MS){
 // (524 = "A timeout occurred": الأصل سكت أكتر من مهلة Cloudflare الداخلية —
 // ده اللي كان بيوقّف z-ai/glm-5.2 بره أي منطق بديل لأنه ما كانش في القايمة أصلاً).
 const RETRYABLE_STATUS=[401,403,404,429,500,502,503,504,520,521,522,523,524,525,526,527,528,529,530];
-async function callModelWithFallback(kind,body,{stream=false,timeoutMs=FETCH_TIMEOUT_MS}={}){
+async function callModelWithFallback(kind,body,{stream=false,timeoutMs=FETCH_TIMEOUT_MS,allowThinking=true}={}){
   const modelList=CONFIG.models[kind]||[];
   let lastErr=null;
   for(let i=0;i<modelList.length;i++){
@@ -935,7 +951,7 @@ async function callModelWithFallback(kind,body,{stream=false,timeoutMs=FETCH_TIM
         const res=await fetchWithTimeout(endpoint,{
           method:'POST',
           headers:{'Content-Type':'application/json','Authorization':`Bearer ${apiKey}`},
-          body:JSON.stringify({...body,...getExtraParamsFor(model),model})
+          body:JSON.stringify({...body,...getExtraParamsFor(model,{allowThinking}),model})
         },timeoutMs);
         if(res.ok)return{res,modelUsed:model};
         if(RETRYABLE_STATUS.includes(res.status)&&!isLastCombo){
@@ -1429,7 +1445,7 @@ async function performTargetedFileEdit(userText,file,codeKind='code'){
         temperature:0,max_tokens:20,stream:false,messages:[
           {role:'system',content:'أنت أداة تحديد موقع كود داخل ملف كبير. سأعطيك مقتطفات من عدة قطع من الملف، ورد فقط برقم القطعة الأنسب لتنفيذ طلب المستخدم، بدون أي كلام إضافي.'},
           {role:'user',content:`طلب المستخدم: ${userText}\n\nالقطع المرشحة:\n${outline}\n\nرد برقم القطعة فقط.`}
-        ]});
+        ]},{allowThinking:false});
       const locData=await locRes.json();
       const num=parseInt((locData.choices?.[0]?.message?.content||'').match(/\d+/)?.[0],10);
       if(num&&chunks[num-1])targetIdx=num-1;
@@ -1458,7 +1474,7 @@ async function performTargetedFileEdit(userText,file,codeKind='code'){
   renderStreamingMsg();
 
   const{res:editRes}=await callModelWithFallback(codeKind,{
-    temperature:0.4,max_tokens:9000,stream:false,messages:[
+    temperature:0.4,max_tokens:14000,stream:false,messages:[
       {role:'system',content:`أنت مهندس برمجيات خبير. هذا جزء من ملف أكبر اسمه "${file.name}" (من السطر ${target.start} إلى ${target.end} من إجمالي ${lines.length} سطر). افهم منطق هذا الجزء وعلاقته بالطلب قبل التعديل، وحدد السبب الجذري لو فيه مشكلة، ثم عدّل هذا الجزء فقط بناءً على طلب المستخدم. اكتب جملة قصيرة قبل الكود توضح ماذا لاحظت ووين بالظبط الجزء المطلوب تعديله، ثم بلوك كود واحد فيه الجزء بعد التعديل كاملاً (شامل أي سطر لم يتغيّر داخل هذا الجزء تحديداً)، ثم جملة قصيرة بعد الكود توضح ماذا عدّلت بالضبط ولو فيه نصيحة إضافية مفيدة. لا تكتب الملف كله، فقط هذا الجزء.`},
       {role:'user',content:`الجزء (من سطر ${target.start} إلى ${target.end}):\n\`\`\`\n${target.content}\n\`\`\`\n\nطلب المستخدم: ${userText}`}
     ]});
@@ -1825,7 +1841,7 @@ ${useCodeModel?codeFilePrompt:`
       startBuildStatusRotation();
       try{
         const{full:fastFull}=await streamModelWithFallback(codeKind,{
-          messages:apiMsgs,temperature:0.4,max_tokens:16000
+          messages:apiMsgs,temperature:0.4,max_tokens:24000
         },onCodeToken,timeoutMs);
         full=fastFull;
       }finally{
@@ -1854,7 +1870,7 @@ ${useCodeModel?codeFilePrompt:`
           try{
             const retryMsgs=[...apiMsgs,{role:'assistant',content:full},{role:'user',content:'الرد اللي رجعته مش الملف كاملاً، فيه جزء ناقص أو مختصر. أرسل الملف كاملاً من أول سطر لآخر سطر بعد التعديل داخل بلوك كود واحد فقط، ابدأ به مباشرة قبل أي شرح، ولا تحذف أو تختصر أي جزء من الملف الأصلي لم يتغيّر.'}];
             const{res:retryRes}=await callModelWithFallback(codeKind,{
-              messages:retryMsgs,temperature:0.2,max_tokens:16000,stream:false
+              messages:retryMsgs,temperature:0.2,max_tokens:24000,stream:false
             },{timeoutMs});
             {
               const retryData=await retryRes.json();
