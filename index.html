@@ -123,7 +123,7 @@ code, pre, kbd { font-family: 'JetBrains Mono', ui-monospace, monospace; }
 
 /* ============ Sidebar ============ */
 .sidebar {
-  width: 280px;
+  width: 300px;
   flex-shrink: 0;
   background: var(--sidebar-bg);
   border-inline-end: 1px solid var(--border);
@@ -133,7 +133,15 @@ code, pre, kbd { font-family: 'JetBrains Mono', ui-monospace, monospace; }
   padding: 1.1rem 0.9rem;
   transition: transform 0.28s ease;
   z-index: 40;
+  position: fixed;
+  top: 0; bottom: 0;
+  inset-inline-start: 0;
+  transform: translateX(100%);
+  box-shadow: var(--shadow-lg);
 }
+html[dir="ltr"] .sidebar { transform: translateX(-100%); }
+.app.sidebar-open .sidebar { transform: translateX(0); }
+.app.sidebar-open .sidebar-overlay { display: block; opacity: 1; }
 
 .sidebar-header {
   display: flex;
@@ -146,7 +154,7 @@ code, pre, kbd { font-family: 'JetBrains Mono', ui-monospace, monospace; }
 .brand-logo { display: flex; border-radius: 0.6rem; overflow: hidden; }
 .brand-name { font-weight: 700; font-size: 1.05rem; letter-spacing: -0.01em; }
 
-.sidebar-close { display: none; }
+.sidebar-close { display: flex; }
 
 .new-chat-btn {
   position: relative;
@@ -340,7 +348,7 @@ html:not(.dark) .icon-moon { display: none; }
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.topbar .icon-btn { display: none; }
+.topbar .icon-btn { display: flex; }
 
 .topbar-badge {
   display: flex;
@@ -1151,19 +1159,9 @@ html[dir="ltr"] .toast-container { transform: translateX(-50%); }
 /* ============ Responsive ============ */
 @media (max-width: 860px) {
   .sidebar {
-    position: fixed;
-    top: 0; bottom: 0;
-    inset-inline-start: 0;
-    transform: translateX(100%);
-    box-shadow: var(--shadow-lg);
     width: min(84vw, 320px);
     padding-top: calc(1.1rem + env(safe-area-inset-top));
   }
-  html[dir="ltr"] .sidebar { transform: translateX(-100%); }
-  .app.sidebar-open .sidebar { transform: translateX(0); }
-  .app.sidebar-open .sidebar-overlay { display: block; opacity: 1; }
-  .sidebar-close { display: flex; }
-  .topbar .icon-btn { display: flex; }
   .topbar { padding: 0.7rem 0.9rem; padding-top: calc(0.7rem + env(safe-area-inset-top)); }
   .topbar-title { flex: 0 1 auto; }
   .topbar-badge span:last-child { display: none; }
