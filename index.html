@@ -585,6 +585,7 @@ header{
               <div class="model-dropdown-item" data-model="gpt" title="دردشة نصية عامة">💬 دردشة نصية</div>
               <div class="model-dropdown-item" data-model="code" title="نموذج برمجة عادي — بيجرب موديل بديل تلقائياً لو الأول مشغول">💻 برمجة</div>
               <div class="model-dropdown-item" data-model="fastcode" title="نموذج برمجة سريع مخصص — DeepSeek V4 Pro عبر NVIDIA فقط، من غير بدائل">⚡ برمجة_سريع</div>
+              <div class="model-dropdown-item" data-model="media" title="نموذج مخصص لإنشاء صور وفيديوهات من نص — nvidia/cosmos3-nano عبر NVIDIA فقط">🎨 إنشاء صور وفيديوهات</div>
             </div>
           </div>
         </div>
@@ -669,6 +670,9 @@ const CONFIG={
   // رابط الـ Worker الموحّد (proxy) اللي بيغطي Groq وOpenRouter وNVIDIA الثلاثة.
   // حط هنا رابط الـ Worker بتاعك بعد نشره (خطوات النشر في novamind-proxy-worker.js).
   proxyUrl:'https://novamind-proxy.hooda2026g1.workers.dev',
+  // Worker منفصل تماماً مخصص لتوليد الصور/الفيديو (nvidia/cosmos3-nano) — بعد
+  // نشره (خطوات النشر في novamind-media-proxy-worker.js)، حط رابطه هنا.
+  mediaProxyUrl:'https://novamind-proxy.hooda2026g1.workers.dev',
   // موديلات مع بدائل احتياطية: لو موديل رئيسي اتلغى أو رجع خطأ 404/429،
   // النظام يجرب اللي بعده تلقائياً بدل ما يفشل الطلب بالكامل.
   models:{
@@ -680,15 +684,28 @@ const CONFIG={
     code:['z-ai/glm-5.2','cohere/north-mini-code:free','qwen/qwen3-coder:free','openai/gpt-oss-120b:free','deepseek/deepseek-r1-distill:free','meta-llama/llama-3.3-70b-instruct:free'],
     // برمجة_سريع: موديل واحد بس تحديداً، deepseek-ai/deepseek-v4-pro عبر NVIDIA، مفيش بدائل خالص
     fastcode:['deepseek-ai/deepseek-v4-pro'],
-    vision:['google/gemma-4-31b-it:free','meta-llama/llama-3.2-11b-vision-instruct:free','qwen/qwen2.5-vl-32b-instruct:free'] // عبر OpenRouter
+    // nvidia/cosmos3-nano-reasoner (عبر NVIDIA): موديل فهم/تفكير متخصص في الصور والفيديو والمنطق
+    // الفيزيائي للمشهد — بيرجّع نص بس (مش موديل توليد صور). بنحطه الأول، ولو فشل بيقع
+    // على موديلات OpenRouter المجانية زي ما كان قبل كده.
+    vision:['nvidia/cosmos3-nano-reasoner','google/gemma-4-31b-it:free','meta-llama/llama-3.2-11b-vision-instruct:free','qwen/qwen2.5-vl-32b-instruct:free'], // الأول عبر NVIDIA، والباقي عبر OpenRouter
+    // "المساعد الثاني": nvidia/nemotron-3-ultra-550b-a55b عبر NVIDIA برضو (نفس مسار /nvidia).
+    // مش موديل يختاره المستخدم من القايمة، ده بيشتغل تلقائياً كمراجع بعد أي رد أساسي (عام/
+    // برمجة/برمجة_سريع/تعديل جزئي) — شوف reviewWithNemotron تحت. زي أي موديل تاني عبر الـ
+    // proxy، المفتاح الحقيقي بتاعه سيرفر-سايد بس جوه الـ Worker، مش هنا.
+    review:['nvidia/nemotron-3-ultra-550b-a55b'],
+    // إنشاء صور/فيديو من نص: موديل واحد بس، nvidia/cosmos3-nano، عبر مسار توليد مختلف
+    // تماماً عن الشات (/nvidia/generate في الـ Worker) — ده Generator حقيقي بيرجع
+    // بايتات صورة/فيديو، مش رد نصي زي باقي الموديلات فوق.
+    media:['nvidia/cosmos3-nano']
   }
 };
-// خريطة: بيرجع الـ endpoint (مسار الـ proxy) الصح لموديل معيّن. z-ai/glm-5.2 بيتنادى
-// عبر مسار /nvidia في الـ proxy، موديلات الكود التانية عبر /openrouter، والباقي عبر /groq.
+// خريطة: بيرجع الـ endpoint (مسار الـ proxy) الصح لموديل معيّن. z-ai/glm-5.2 وdeepseek-v4-pro
+// وnemotron-3-ultra بيتناداوا عبر مسار /nvidia في الـ proxy، موديلات الكود التانية عبر
+// /openrouter، والباقي عبر /groq.
 // apiKeys:[''] لكل الحالات لأن المفتاح الحقيقي دلوقتي سيرفر-سايد بالكامل جوه الـ Worker،
 // مش محتاجين المتصفح يبعت أو حتى يعرف أي مفتاح.
 function getProviderFor(kind,model){
-  if(model==='z-ai/glm-5.2'||model==='deepseek-ai/deepseek-v4-pro')return{endpoint:`${CONFIG.proxyUrl}/nvidia`,apiKeys:['']};
+  if(model==='z-ai/glm-5.2'||model==='deepseek-ai/deepseek-v4-pro'||model==='nvidia/nemotron-3-ultra-550b-a55b'||model==='nvidia/cosmos3-nano-reasoner')return{endpoint:`${CONFIG.proxyUrl}/nvidia`,apiKeys:['']};
   if(kind==='code'||kind==='vision')return{endpoint:`${CONFIG.proxyUrl}/openrouter`,apiKeys:['']};
   return{endpoint:`${CONFIG.proxyUrl}/groq`,apiKeys:['']};
 }
@@ -707,6 +724,52 @@ function getExtraParamsFor(model){
   }
   return{};
 }
+// ===== توليد صور وفيديو (nvidia/cosmos3-nano) =====
+// مسار مختلف تماماً عن باقي الموديلات فوق (اللي كلها chat/completions): ده Generator
+// حقيقي بيرجّع بايتات وسائط (صورة/فيديو) لا رد نصي، فمحتاج endpoint مخصص جوه الـ
+// Worker (مقترح: ${CONFIG.proxyUrl}/nvidia/generate) بيحوّل الطلب لـ endpoint التوليد
+// الحقيقي عند NVIDIA (build.nvidia.com/nvidia/cosmos3-nano) ويحقن المفتاح سيرفر-سايد،
+// بنفس مبدأ /nvidia الموجود أصلاً. ⚠️ لسه محتاج تجربة فعلية من صاحب الموقع للتأكد من
+// شكل الـ endpoint الحقيقي (فيه بلاغ موثّق من NVIDIA نفسها إن الـ endpoint المستضاف
+// لسه بيرجع 404 لحد وقت كتابة الكود ده)، فالكود هنا مبني على أفضل توثيق متاح ومحتاج
+// اختبار وربما تعديل بسيط لو شكل الرد الفعلي مختلف.
+function detectMediaType(prompt){
+  const t=(prompt||'').toLowerCase();
+  const videoKw=['فيديو','فديو','فيدوهات','فيديوهات','video','clip','مقطع'];
+  return videoKw.some(k=>t.includes(k))?'video':'image';
+}
+async function generateMedia(prompt,{timeoutMs=CALL_FETCH_TIMEOUT_MS*4}={}){
+  if(!CONFIG.mediaProxyUrl||CONFIG.mediaProxyUrl.includes('REPLACE-WITH')){
+    throw new Error('لسه محتاج تنشر novamind-media-proxy-worker.js وتحط رابطه في CONFIG.mediaProxyUrl.');
+  }
+  const model=CONFIG.models.media[0]; // nvidia/cosmos3-nano
+  const outputType=detectMediaType(prompt);
+  const body={
+    model,
+    prompt,
+    output_type:outputType, // 'image' أو 'video'
+    resolution:'480',
+    aspect_ratio:'16:9',
+    ...(outputType==='video'?{duration_seconds:5,fps:24}:{}),
+    seed:Math.floor(Math.random()*1e6)
+  };
+  const res=await fetchWithTimeout(CONFIG.mediaProxyUrl,{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify(body)
+  },timeoutMs);
+  if(!res.ok){
+    const errText=await res.text().catch(()=>'');
+    throw new Error(`فشل التوليد (${res.status}): ${errText||'خطأ غير معروف من السيرفر'}`);
+  }
+  const data=await res.json();
+  // بنقبل أكتر من شكل رد محتمل عشان نتوافق مع اختلافات الـ API الحقيقي وقت التجربة
+  const b64=data.b64_video||data.b64_image||data.data?.[0]?.b64_json||data.image?.b64_json||data.video?.b64_json;
+  if(!b64)throw new Error('السيرفر رجع رد بدون وسائط — راجع شكل استجابة /nvidia/generate الحقيقي وعدّل الدالة دي لو مختلف.');
+  const mime=outputType==='video'?'video/mp4':'image/png';
+  return{type:outputType,mime,data:b64};
+}
+
 // أسماء قديمة لسه مستخدمة في أماكن تانية بالكود، سايبها عشان التوافق
 const SITE_NAME=CONFIG.siteName;
 const SITE_NAME_EN=CONFIG.siteNameEn;
@@ -939,6 +1002,35 @@ async function streamModelWithFallback(kind,body,onToken,timeoutMs=FETCH_TIMEOUT
 // وبعدين يدمج ردودهم في رد واحد. اتشال بالكامل بناءً على طلب صريح: موديل واحد بس
 // (برمجة_سريع = deepseek-ai/deepseek-v4-pro) بيشتغل دلوقتي لوضع البرمجة، من غير
 // أي استدعاء متوازي أو دمج مع موديلات تانية — شوف getExtraParamsFor و CONFIG.models.fastcode فوق.
+//
+// ===== "المساعد الثاني" (Nemotron Ultra) =====
+// ده مختلف عن النظام "التعاوني" القديم اللي اتشال فوق: مفيش استدعاء متوازي ومفيش دمج
+// ردود. بيشتغل بالتتابع (sequential) بعد ما الموديل الأساسي يخلص رده بالكامل: بياخد
+// طلب المستخدم + رد الموديل الأساسي، يفحصه، ولو لقى غلط واضح أو حاجة ناقصة من الطلب
+// يصححه ويرجّع النسخة المصححة، ولو مفيش مشكلة يرجّع الرد زي ما هو من غير تغيير.
+// بيشتغل مع كل الأنواع (عام/برمجة/برمجة_سريع/تعديل جزئي) عدا المكالمة الصوتية (isCall)
+// عشان السرعة هناك أهم من مراجعة إضافية. لو فشل الاتصال بيه لأي سبب، بيرجّع الرد
+// الأصلي زي ما هو من غير ما يكسر تجربة المستخدم أو يوقف الرسالة.
+async function reviewWithNemotron(userText,draftAnswer,isCode){
+  if(!draftAnswer||!draftAnswer.trim())return draftAnswer;
+  try{
+    const sys=isCode
+      ?'أنت مراجع كود خبير (senior code reviewer) بتراجع رد موديل تاني بعد ما خلص. هتستلم طلب المستخدم والرد الكامل. افحص الرد بدقة: لو فيه خطأ برمجي واضح، أو جزء ناقص من طلب المستخدم بالتحديد، أو مشكلة حقيقية، صححها وارجع النص الكامل بعد التصحيح بنفس التنسيق بالظبط (نفس بلوكات الكود ونفس اللغة). لو الرد صحيح ومطابق للطلب، ارجعه حرفياً زي ما هو من غير ولا حرف تغيير. ممنوع تضيف أي شرح أو مقدمة أو تعليق خارج نص الرد نفسه.'
+      :'أنت مراجع دقيق بتراجع رد موديل تاني بعد ما خلص. هتستلم طلب المستخدم والرد الكامل. افحص الرد: لو فيه معلومة غلط بشكل واضح أو جزء مهم ناقص من الطلب، صححه وارجع النص الكامل بعد التصحيح. لو الرد صحيح ومناسب، ارجعه حرفياً زي ما هو من غير ولا حرف تغيير. ممنوع تضيف أي شرح أو مقدمة أو تعليق خارج نص الرد نفسه.';
+    const{res}=await callModelWithFallback('review',{
+      temperature:0.2,max_tokens:9000,stream:false,
+      messages:[
+        {role:'system',content:sys},
+        {role:'user',content:`طلب المستخدم: ${userText}\n\nرد الموديل الأساسي:\n${draftAnswer}`}
+      ]
+    },{timeoutMs:45000});
+    const data=await res.json();
+    const reviewed=data.choices?.[0]?.message?.content?.trim();
+    return reviewed||draftAnswer;
+  }catch(e){
+    return draftAnswer;
+  }
+}
 
 // ===== TOAST =====
 let toastTimer;
@@ -1105,6 +1197,12 @@ function renderMsg(msg,i){
   if(!isUser)content=renderMd(msg.content);
   let html=`<div class="msg-avatar ${isUser?'user':'ai'}">${isUser?'👤':SPARK_MONO}</div><div class="msg-content"><div class="msg-bubble">${content}</div>`;
   if(msg.images&&msg.images.length>0){html+=`<div class="msg-imgs">`;msg.images.forEach(img=>{html+=`<img src="data:${img.mime||'image/jpeg'};base64,${img.data}" alt="صورة" loading="lazy">`});html+=`</div>`}
+  if(msg.generatedMedia){
+    const gm=msg.generatedMedia;
+    html+=`<div class="msg-imgs">`+(gm.type==='video'
+      ?`<video controls style="max-width:280px;border-radius:8px;border:1px solid var(--border)" src="data:${gm.mime};base64,${gm.data}"></video>`
+      :`<img src="data:${gm.mime};base64,${gm.data}" alt="صورة مولّدة" style="max-width:280px;max-height:280px">`)+`</div>`;
+  }
   if(msg.files&&msg.files.length>0){html+=`<div class="msg-files">`;msg.files.forEach(f=>{html+=`<div class="msg-file"><span>📄</span><span class="name">${escHtml(f.name)}</span><span class="size">${fmtSize(f.size)}</span></div>`});html+=`</div>`}
   if(msg.genFiles&&msg.genFiles.length>0){msg.genFiles.forEach((gf,gi)=>{const gid=`${msg.id}_${gi}`;genFileStore[gid]=gf;const lc=(gf.content.match(/\n/g)||[]).length+1;html+=`<div class="msg-genfile-row"><div class="msg-genfile" data-genfile="${gid}"><span class="gf-icon">📦</span><div class="gf-info"><div class="gf-name">${escHtml(gf.name)}</div><div class="gf-sub">${lc.toLocaleString('ar-EG')} سطر · اضغط للتحميل</div></div><span class="gf-dl">⬇</span></div><button class="gf-copy" data-copygenfile="${gid}" title="نسخ المحتوى">📋</button></div>`});}
   html+=`<div class="msg-actions"><span class="msg-time">${fmtTime(msg.timestamp)}</span>`;
@@ -1338,8 +1436,11 @@ async function performTargetedFileEdit(userText,file,codeKind='code'){
   const editData=await editRes.json();
   const editFull=editData.choices?.[0]?.message?.content||'';
   const{text:narration,genFiles:editedBlocks}=extractCodeAsFiles(editFull,[]);
-  const newChunkContent=editedBlocks[0]?.content;
+  let newChunkContent=editedBlocks[0]?.content;
   if(!newChunkContent)throw new Error('تعذر استخراج التعديل من رد النموذج');
+  // المساعد الثاني بيراجع الجزء المعدَّل بس (مش الملف كله) قبل الدمج — أرخص وأدق من
+  // مراجعة الملف كامل، وده بالظبط المكان اللي احتمال الغلط فيه أعلى شيء.
+  newChunkContent=await reviewWithNemotron(userText,newChunkContent,true);
 
   const newLines=lines.slice(0,target.start-1).concat(newChunkContent.split('\n')).concat(lines.slice(target.end));
   return{narration:narration||'✅ لقيت الجزء وعدّلته.',genFile:{name:file.name,content:newLines.join('\n'),lang:''}};
@@ -1417,20 +1518,33 @@ function isCodingRequest(text){
   return kw.some(k=>t.includes(k.toLowerCase()));
 }
 
-// ===== IMAGE ANALYSIS (via OpenRouter vision model) =====
+// ===== IMAGE ANALYSIS (عبر NVIDIA cosmos3-nano-reasoner أولاً، وإلا موديلات OpenRouter) =====
+// cosmos3-nano-reasoner (زي أي Reasoner) بيرجع أحياناً بصيغة <think>تفكير</think><answer>الرد</answer>
+// لو طلبنا منه كده — إحنا مش طالبين الصيغة دي صراحة عشان نوفر توكنز، لكن لو رجعها لوحده
+// (بيحصل أحياناً مع موديلات reasoning) لازم ننضّف الـ <think> قبل ما نوريها للمستخدم.
+function stripThinkTags(t){
+  if(!t)return t;
+  let out=t.replace(/<think>[\s\S]*?<\/think>/gi,'').trim();
+  const answerMatch=out.match(/<answer>([\s\S]*?)<\/answer>/i);
+  if(answerMatch)out=answerMatch[1].trim();
+  return out||t.trim();
+}
 async function analyzeImages(images){
   const descriptions=[];
   for(const img of images){
     try{
+      const model=CONFIG.models.vision[0]; // الموديل اللي هيتجرب الأول (cosmos3-nano-reasoner عبر NVIDIA)
+      const isReasoner=model==='nvidia/cosmos3-nano-reasoner';
       const{res}=await callModelWithFallback('vision',{
         messages:[{role:'user',content:[
-          {type:'text',text:'صف هذه الصورة بالتفصيل باللغة العربية: العناصر الظاهرة، أي نصوص مكتوبة فيها، والسياق العام. اجعل الوصف دقيقاً ومفيداً.'},
+          {type:'text',text:'صف هذه الصورة بالتفصيل باللغة العربية: العناصر الظاهرة، أي نصوص مكتوبة فيها، والسياق العام، ولو فيه أي تفاصيل فيزيائية أو منطقية في المشهد وضّحها. اجعل الوصف دقيقاً ومفيداً. جاوب مباشرة بالوصف من غير أي وسوم تفكير.'},
           {type:'image_url',image_url:{url:`data:${img.mime||'image/jpeg'};base64,${img.data}`}}
         ]}],
-        max_tokens:1000
+        max_tokens:isReasoner?2048:1000
       });
       const data=await res.json();
-      descriptions.push(data.choices?.[0]?.message?.content?.trim()||'تعذر تحليل هذه الصورة.');
+      const raw=data.choices?.[0]?.message?.content?.trim()||'';
+      descriptions.push(raw?stripThinkTags(raw):'تعذر تحليل هذه الصورة.');
     }catch(e){descriptions.push('تعذر تحليل هذه الصورة.')}
   }
   return descriptions;
@@ -1522,6 +1636,19 @@ async function doSend(content,files,images,isCall=false){
   state.messages.push(userMsg);updateConv();renderMessages();saveState();
   state.isLoading=true;globalUserAbort=new AbortController();updateSendBtnState();showTyping(true);
   try{
+    // وضع "إنشاء صور وفيديوهات": مسار منفصل تماماً عن باقي الموديلات فوق — مفيش شات،
+    // مفيش سياق محادثة سابقة، الرسالة نفسها هي الـ prompt للتوليد مباشرة.
+    if(state.selectedModel==='media'&&!isCall){
+      try{
+        const media=await generateMedia(content);
+        const aiMsg={id:genId(),role:'assistant',content:media.type==='video'?'🎬 اتفضل الفيديو اللي طلبته:':'🖼 اتفضلي الصورة اللي طلبتها:',timestamp:Date.now(),generatedMedia:media};
+        state.messages.push(aiMsg);updateConv();state.streamingContent='';renderMessages();saveState();
+      }catch(e){
+        const aiMsg={id:genId(),role:'assistant',content:`⚠️ ${e.message||'حصل خطأ أثناء التوليد، جرب تاني.'}`,timestamp:Date.now()};
+        state.messages.push(aiMsg);updateConv();renderMessages();saveState();
+      }
+      return;
+    }
     // الموديل الأساسي (Groq) لا يدعم الصور، فنستخدم موديل مساعد لتحليلها ووصفها نصياً
     if(images.length){
       userMsg.imageDescriptions=await analyzeImages(images);
@@ -1680,6 +1807,12 @@ ${useCodeModel?codeFilePrompt:`
         messages:apiMsgs,temperature:0.7,max_tokens:4096,top_p:1
       },onPartial,timeoutMs);
       full=streamedFull;
+    }
+    // المساعد الثاني (Nemotron Ultra) بيراجع الرد الأساسي قبل ما يوصل للمستخدم — مش
+    // في المكالمة الصوتية (isCall) عشان السرعة هناك أهم من مراجعة إضافية.
+    if(!isCall){
+      setStatus('🧠 بيتراجع الرد...');
+      full=await reviewWithNemotron(content,full,useCodeModel);
     }
     let aiMsg;
     if(useCodeModel){
@@ -1861,7 +1994,7 @@ window.addEventListener('resize',()=>{
 // ===== MODEL DROPDOWN =====
 // موديل واحد بس مختار وظاهر في كل لحظة (في الزرار)، وضغطة على السهم بتفتح قايمة
 // تختار منها بدل ما تبان كل الموديلات جنب بعض زي المبدّل القديم.
-const MODEL_BTN_LABELS={auto:'🤖 تلقائي',gpt:'💬 دردشة نصية',code:'💻 برمجة',fastcode:'⚡ برمجة_سريع'};
+const MODEL_BTN_LABELS={auto:'🤖 تلقائي',gpt:'💬 دردشة نصية',code:'💻 برمجة',fastcode:'⚡ برمجة_سريع',media:'🎨 إنشاء صور وفيديوهات'};
 function renderModelSwitcher(){
   modelDropdownLabel.textContent=MODEL_BTN_LABELS[state.selectedModel]||MODEL_BTN_LABELS.auto;
   modelDropdownList.querySelectorAll('.model-dropdown-item').forEach(it=>{
@@ -1877,7 +2010,7 @@ modelDropdownList.querySelectorAll('.model-dropdown-item').forEach(it=>{
     state.selectedModel=it.dataset.model;
     renderModelSwitcher();saveState();
     modelDropdown.classList.remove('open');
-    const labels={auto:'الوضع التلقائي',gpt:'دردشة نصية',code:'برمجة',fastcode:'برمجة_سريع (DeepSeek V4 Pro)'};
+    const labels={auto:'الوضع التلقائي',gpt:'دردشة نصية',code:'برمجة',fastcode:'برمجة_سريع (DeepSeek V4 Pro)',media:'إنشاء صور وفيديوهات (Cosmos3-Nano)'};
     showToast(`تم التحويل إلى ${labels[state.selectedModel]}`);
   });
 });
