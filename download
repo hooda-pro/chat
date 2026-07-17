@@ -1,0 +1,33 @@
+# ============================================================
+# Final AI — Cloudflare Worker configuration
+# ============================================================
+# Deploy with:
+#   cd worker
+#   npx wrangler deploy
+#
+# Set the API key secret (NEVER put it here or in the frontend):
+#   npx wrangler secret put NVIDIA_API_KEY
+# ============================================================
+
+name = "final-ai"
+main = "worker.js"
+compatibility_date = "2025-07-01"
+
+# workers.dev subdomain -> https://final-ai.<your-subdomain>.workers.dev
+workers_dev = true
+
+[vars]
+# Restrict to your GitHub Pages origin in production, e.g.:
+# ALLOWED_ORIGINS = "https://YOUR-USERNAME.github.io"
+ALLOWED_ORIGINS = "*"
+
+# Requests per minute allowed per IP address
+RATE_LIMIT_RPM = "20"
+
+# Model identifier on the NVIDIA API
+MODEL_ID = "nvidia/nemotron-3-ultra-550b-a55b"
+
+# ------------------------------------------------------------
+# Secrets (set via CLI, not in this file):
+#   NVIDIA_API_KEY  ->  npx wrangler secret put NVIDIA_API_KEY
+# ------------------------------------------------------------

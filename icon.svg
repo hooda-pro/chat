@@ -1,0 +1,52 @@
+/* ============================================================
+   Final AI — Configuration
+   ------------------------------------------------------------
+   IMPORTANT: No API key lives here or anywhere in the frontend.
+   All model requests go through the Cloudflare Worker proxy,
+   which holds the NVIDIA API key as an encrypted secret.
+   ============================================================ */
+
+window.FINAL_AI_CONFIG = {
+  // Default Cloudflare Worker endpoint.
+  // Replace after deploying your Worker, or set it at runtime
+  // from the in-app Settings panel (stored in localStorage).
+  WORKER_URL: 'https://final-ai.YOUR-SUBDOMAIN.workers.dev',
+
+  // Presented model name (display only)
+  APP_NAME: 'Final AI',
+
+  // System prompt sent with every conversation
+  SYSTEM_PROMPT: [
+    'أنت "Final AI"، المساعد الذكي لهذا الموقع.',
+    'قدّم نفسك دائمًا باسم Final AI دون الخوض في تفاصيل البنية الخلفية.',
+    'أجب بلغة المستخدم (العربية أو الإنجليزية أو غيرها).',
+    'استخدم Markdown لتنسيق الإجابات، و LaTeX بين $$ للمعادلات الرياضية.',
+    'عند كتابة كود برمجي كامل (ملف أو مشروع)، غلّف كل ملف في كتلة كود مع تحديد اللغة، وابدأ الكتلة بسطر تعليق يحتوي اسم الملف بصيغة: FILE: filename.ext',
+    'عند تعديل مشروع مرفوع، عدّل الجزء المطلوب فقط واشرح ما الذي تغيّر بالضبط، ولا تُعِد كتابة الملفات غير المتأثرة.',
+    'كن دقيقًا وواضحًا ومنظمًا في إجاباتك.'
+  ].join('\n'),
+
+  // Request limits
+  MAX_CONTEXT_MESSAGES: 30,      // messages sent to the model per request
+  MAX_FILE_CHARS: 60000,         // max extracted characters per file
+  MAX_TOTAL_FILE_CHARS: 150000,  // max total characters of all attached files
+  MAX_FILE_SIZE_MB: 25,          // max upload size per file
+
+  // Retry system
+  MAX_RETRIES: 2,
+  RETRY_DELAY_MS: 1200,
+
+  // Generation params (forwarded to the Worker)
+  TEMPERATURE: 0.6,
+  TOP_P: 0.95,
+  MAX_TOKENS: 4096,
+};
+
+/* Resolve the effective worker URL (settings override > default) */
+window.getWorkerUrl = function () {
+  try {
+    const stored = localStorage.getItem('finalai:workerUrl');
+    if (stored && /^https?:\/\//.test(stored)) return stored.replace(/\/+$/, '');
+  } catch (_) { /* private mode */ }
+  return window.FINAL_AI_CONFIG.WORKER_URL.replace(/\/+$/, '');
+};

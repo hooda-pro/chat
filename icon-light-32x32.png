@@ -1,0 +1,986 @@
+/* ============================================================
+   Final AI — Main application
+   Chat state, streaming, markdown rendering, history, files
+   ============================================================ */
+
+(function () {
+  'use strict';
+
+  const CFG = window.FINAL_AI_CONFIG;
+  const Files = window.FinalAIFiles;
+
+  /* ================= State ================= */
+  const state = {
+    chats: [],            // [{id, title, createdAt, updatedAt, messages: [{id, role, content, files?}]}]
+    activeChatId: null,
+    attachments: [],      // parsed pending files [{name,size,kind,text,...}]
+    streaming: false,
+    abortController: null,
+    searchQuery: '',
+  };
+
+  /* ================= DOM refs ================= */
+  const $ = (id) => document.getElementById(id);
+  const els = {
+    app: $('app'),
+    sidebar: $('sidebar'),
+    sidebarOpen: $('sidebar-open'),
+    sidebarClose: $('sidebar-close'),
+    sidebarOverlay: $('sidebar-overlay'),
+    newChatBtn: $('new-chat-btn'),
+    chatSearch: $('chat-search'),
+    chatList: $('chat-list'),
+    themeToggle: $('theme-toggle'),
+    settingsBtn: $('settings-btn'),
+    topbarTitle: $('topbar-title'),
+    chatArea: $('chat-area'),
+    messages: $('messages'),
+    welcome: $('welcome'),
+    scrollBottomBtn: $('scroll-bottom-btn'),
+    promptInput: $('prompt-input'),
+    sendBtn: $('send-btn'),
+    attachBtn: $('attach-btn'),
+    fileInput: $('file-input'),
+    attachments: $('attachments'),
+    dropOverlay: $('drop-overlay'),
+    settingsModal: $('settings-modal'),
+    settingsClose: $('settings-close'),
+    settingsSave: $('settings-save'),
+    workerUrlInput: $('worker-url-input'),
+    clearAllBtn: $('clear-all-btn'),
+    confirmModal: $('confirm-modal'),
+    confirmText: $('confirm-text'),
+    confirmOk: $('confirm-ok'),
+    confirmCancel: $('confirm-cancel'),
+    toasts: $('toasts'),
+  };
+
+  /* ================= Utilities ================= */
+  const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+
+  function toast(msg, isError) {
+    const t = document.createElement('div');
+    t.className = 'toast' + (isError ? ' error' : '');
+    t.textContent = msg;
+    els.toasts.appendChild(t);
+    setTimeout(() => t.remove(), 3200);
+  }
+
+  let confirmResolve = null;
+  function confirmDialog(text) {
+    els.confirmText.textContent = text;
+    els.confirmModal.hidden = false;
+    return new Promise((resolve) => { confirmResolve = resolve; });
+  }
+  els.confirmOk.addEventListener('click', () => { els.confirmModal.hidden = true; if (confirmResolve) confirmResolve(true); });
+  els.confirmCancel.addEventListener('click', () => { els.confirmModal.hidden = true; if (confirmResolve) confirmResolve(false); });
+
+  /* ================= Persistence ================= */
+  const STORE_KEY = 'finalai:chats';
+  function saveChats() {
+    try {
+      // Strip heavy image dataURLs before persisting to keep storage small
+      const slim = state.chats.map((c) => ({
+        ...c,
+        messages: c.messages.map((m) => ({
+          ...m,
+          files: m.files ? m.files.map((f) => ({ name: f.name, size: f.size, kind: f.kind })) : undefined,
+        })),
+      }));
+      localStorage.setItem(STORE_KEY, JSON.stringify(slim));
+    } catch (e) {
+      console.log('[v0] Failed to save chats:', e.message);
+    }
+  }
+  function loadChats() {
+    try {
+      const raw = localStorage.getItem(STORE_KEY);
+      if (raw) state.chats = JSON.parse(raw) || [];
+    } catch (_) { state.chats = []; }
+  }
+
+  /* ================= Theme ================= */
+  function initTheme() {
+    const saved = localStorage.getItem('finalai:theme');
+    const dark = saved ? saved === 'dark' : true;
+    document.documentElement.classList.toggle('dark', dark);
+    updateHljsTheme(dark);
+  }
+  function toggleTheme() {
+    const dark = !document.documentElement.classList.contains('dark');
+    document.documentElement.classList.toggle('dark', dark);
+    localStorage.setItem('finalai:theme', dark ? 'dark' : 'light');
+    updateHljsTheme(dark);
+  }
+  function updateHljsTheme(dark) {
+    const link = $('hljs-theme');
+    link.href = dark
+      ? 'https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.10.0/build/styles/atom-one-dark.min.css'
+      : 'https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.10.0/build/styles/atom-one-light.min.css';
+  }
+
+  /* ================= Markdown rendering ================= */
+  function protectLatex(text) {
+    // Shield $$...$$ blocks from the markdown parser
+    const stash = [];
+    const out = text.replace(/\$\$([\s\S]+?)\$\$/g, (_, expr) => {
+      stash.push(expr);
+      return `%%KATEX${stash.length - 1}%%`;
+    });
+    return { out, stash };
+  }
+
+  function renderLatex(html, stash) {
+    return html.replace(/%%KATEX(\d+)%%/g, (_, i) => {
+      try {
+        return window.katex.renderToString(stash[+i], { displayMode: true, throwOnError: false });
+      } catch (_) { return '$$' + stash[+i] + '$$'; }
+    });
+  }
+
+  function renderMarkdown(raw) {
+    const { out, stash } = protectLatex(raw);
+    window.marked.setOptions({ breaks: true, gfm: true });
+    let html = window.marked.parse(out);
+    html = window.DOMPurify.sanitize(html, { ADD_ATTR: ['target'] });
+    html = renderLatex(html, stash);
+    const wrap = document.createElement('div');
+    wrap.className = 'md';
+    wrap.innerHTML = html;
+
+    // External links open in new tab
+    wrap.querySelectorAll('a[href]').forEach((a) => {
+      a.target = '_blank';
+      a.rel = 'noopener noreferrer';
+    });
+
+    // Enhance code blocks
+    wrap.querySelectorAll('pre > code').forEach((code) => enhanceCodeBlock(code));
+    return wrap;
+  }
+
+  const EXT_BY_LANG = {
+    javascript: 'js', js: 'js', typescript: 'ts', ts: 'ts', jsx: 'jsx', tsx: 'tsx',
+    python: 'py', py: 'py', java: 'java', c: 'c', cpp: 'cpp', csharp: 'cs', cs: 'cs',
+    php: 'php', go: 'go', rust: 'rs', rs: 'rs', kotlin: 'kt', swift: 'swift',
+    html: 'html', css: 'css', json: 'json', xml: 'xml', sql: 'sql', bash: 'sh',
+    sh: 'sh', shell: 'sh', yaml: 'yml', yml: 'yml', markdown: 'md', md: 'md',
+    ruby: 'rb', plaintext: 'txt', text: 'txt'
+  };
+
+  function enhanceCodeBlock(codeEl) {
+    const pre = codeEl.parentElement;
+    const langMatch = (codeEl.className || '').match(/language-([\w-]+)/);
+    const lang = langMatch ? langMatch[1] : '';
+    const codeText = codeEl.textContent;
+
+    // Detect "FILE: name.ext" marker on first line for downloadable files
+    let fileName = null;
+    const firstLine = codeText.split('\n', 1)[0];
+    const fm = firstLine.match(/^(?:\/\/|#|<!--|\/\*|--)?\s*FILE:\s*([\w./\-]+)\s*(?:-->|\*\/)?\s*$/i);
+    if (fm) fileName = fm[1];
+
+    try { window.hljs.highlightElement(codeEl); } catch (_) {}
+
+    const block = document.createElement('div');
+    block.className = 'code-block';
+
+    const head = document.createElement('div');
+    head.className = 'code-block-head';
+
+    const langSpan = document.createElement('span');
+    langSpan.className = 'lang';
+    langSpan.textContent = fileName || lang || 'code';
+
+    const actions = document.createElement('div');
+    actions.className = 'actions';
+
+    const copyBtn = document.createElement('button');
+    copyBtn.type = 'button';
+    copyBtn.textContent = 'نسخ';
+    copyBtn.addEventListener('click', async () => {
+      await navigator.clipboard.writeText(codeText);
+      copyBtn.textContent = 'تم النسخ';
+      setTimeout(() => (copyBtn.textContent = 'نسخ'), 1500);
+    });
+    actions.appendChild(copyBtn);
+
+    const dlBtn = document.createElement('button');
+    dlBtn.type = 'button';
+    dlBtn.textContent = 'تنزيل';
+    dlBtn.addEventListener('click', () => {
+      const name = fileName || `code.${EXT_BY_LANG[lang] || 'txt'}`;
+      downloadTextFile(name, stripFileMarker(codeText));
+    });
+    actions.appendChild(dlBtn);
+
+    head.appendChild(langSpan);
+    head.appendChild(actions);
+
+    pre.replaceWith(block);
+    block.appendChild(head);
+    block.appendChild(pre);
+    return block;
+  }
+
+  function stripFileMarker(text) {
+    const lines = text.split('\n');
+    if (/^(?:\/\/|#|<!--|\/\*|--)?\s*FILE:\s*[\w./\-]+/i.test(lines[0])) lines.shift();
+    return lines.join('\n');
+  }
+
+  function downloadTextFile(name, content) {
+    const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+    triggerDownload(name, blob);
+  }
+
+  function triggerDownload(name, blob) {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = name;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 4000);
+  }
+
+  /* Build downloadable file cards + ZIP button when response contains FILE: blocks */
+  function appendProjectDownloads(container, rawContent) {
+    const fileBlocks = [];
+    const re = /```[\w-]*\n((?:\/\/|#|<!--|\/\*|--)?\s*FILE:\s*([\w./\-]+)[^\n]*\n)([\s\S]*?)```/gi;
+    let m;
+    while ((m = re.exec(rawContent)) !== null) {
+      fileBlocks.push({ name: m[2], content: m[3] });
+    }
+    if (fileBlocks.length < 2 || !window.JSZip) return;
+
+    const card = document.createElement('div');
+    card.className = 'file-card';
+    card.innerHTML = `
+      <div class="file-icon">ZIP</div>
+      <div class="file-meta">
+        <div class="file-name">project.zip</div>
+        <div class="file-size">${fileBlocks.length} ملفات — مشروع كامل</div>
+      </div>`;
+    const btn = document.createElement('button');
+    btn.className = 'dl-btn';
+    btn.textContent = 'تنزيل المشروع';
+    btn.addEventListener('click', async () => {
+      const zip = new window.JSZip();
+      for (const f of fileBlocks) zip.file(f.name, f.content);
+      const blob = await zip.generateAsync({ type: 'blob' });
+      triggerDownload('project.zip', blob);
+    });
+    card.appendChild(btn);
+    container.appendChild(card);
+  }
+
+  /* ================= Chat CRUD ================= */
+  function createChat() {
+    const chat = {
+      id: uid(),
+      title: 'محادثة جديدة',
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+      messages: [],
+    };
+    state.chats.unshift(chat);
+    state.activeChatId = chat.id;
+    saveChats();
+    renderChatList();
+    renderMessages();
+    closeSidebarMobile();
+    els.promptInput.focus();
+    return chat;
+  }
+
+  function activeChat() {
+    return state.chats.find((c) => c.id === state.activeChatId) || null;
+  }
+
+  function selectChat(id) {
+    if (state.streaming) stopStreaming();
+    state.activeChatId = id;
+    renderChatList();
+    renderMessages();
+    closeSidebarMobile();
+  }
+
+  async function deleteChat(id) {
+    const ok = await confirmDialog('سيتم حذف هذه المحادثة نهائيًا. هل أنت متأكد؟');
+    if (!ok) return;
+    state.chats = state.chats.filter((c) => c.id !== id);
+    if (state.activeChatId === id) {
+      state.activeChatId = state.chats[0]?.id || null;
+    }
+    saveChats();
+    renderChatList();
+    renderMessages();
+    toast('تم حذف المحادثة');
+  }
+
+  function startRename(id, itemEl) {
+    const chat = state.chats.find((c) => c.id === id);
+    if (!chat) return;
+    const titleEl = itemEl.querySelector('.chat-item-title');
+    const input = document.createElement('input');
+    input.className = 'rename-input';
+    input.value = chat.title;
+    input.setAttribute('aria-label', 'إعادة تسمية المحادثة');
+    titleEl.replaceWith(input);
+    input.focus();
+    input.select();
+
+    const commit = () => {
+      const v = input.value.trim();
+      if (v) chat.title = v;
+      chat.updatedAt = Date.now();
+      saveChats();
+      renderChatList();
+      if (chat.id === state.activeChatId) els.topbarTitle.textContent = chat.title;
+    };
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.isComposing && e.keyCode !== 229) commit();
+      if (e.key === 'Escape') renderChatList();
+      e.stopPropagation();
+    });
+    input.addEventListener('blur', commit);
+    input.addEventListener('click', (e) => e.stopPropagation());
+  }
+
+  /* ================= Sidebar render ================= */
+  function renderChatList() {
+    const q = state.searchQuery.trim().toLowerCase();
+    const chats = q
+      ? state.chats.filter((c) =>
+          c.title.toLowerCase().includes(q) ||
+          c.messages.some((m) => (m.content || '').toLowerCase().includes(q)))
+      : state.chats;
+
+    els.chatList.innerHTML = '';
+    if (!chats.length) {
+      const empty = document.createElement('p');
+      empty.className = 'chat-list-empty';
+      empty.textContent = q ? 'لا توجد نتائج مطابقة' : 'لا توجد محادثات بعد — ابدأ محادثة جديدة';
+      els.chatList.appendChild(empty);
+      return;
+    }
+
+    for (const chat of chats) {
+      const item = document.createElement('div');
+      item.className = 'chat-item' + (chat.id === state.activeChatId ? ' active' : '');
+      item.setAttribute('role', 'button');
+      item.tabIndex = 0;
+
+      const title = document.createElement('span');
+      title.className = 'chat-item-title';
+      title.textContent = chat.title;
+      item.appendChild(title);
+
+      const actions = document.createElement('div');
+      actions.className = 'chat-item-actions';
+
+      const renameBtn = document.createElement('button');
+      renameBtn.className = 'mini-btn';
+      renameBtn.setAttribute('aria-label', 'إعادة تسمية');
+      renameBtn.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>';
+      renameBtn.addEventListener('click', (e) => { e.stopPropagation(); startRename(chat.id, item); });
+
+      const delBtn = document.createElement('button');
+      delBtn.className = 'mini-btn del';
+      delBtn.setAttribute('aria-label', 'حذف المحادثة');
+      delBtn.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>';
+      delBtn.addEventListener('click', (e) => { e.stopPropagation(); deleteChat(chat.id); });
+
+      actions.appendChild(renameBtn);
+      actions.appendChild(delBtn);
+      item.appendChild(actions);
+
+      item.addEventListener('click', () => selectChat(chat.id));
+      item.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); selectChat(chat.id); }
+      });
+      els.chatList.appendChild(item);
+    }
+  }
+
+  /* ================= Messages render ================= */
+  function renderMessages() {
+    const chat = activeChat();
+    els.messages.innerHTML = '';
+    els.topbarTitle.textContent = chat ? chat.title : 'Final AI';
+
+    if (!chat || !chat.messages.length) {
+      els.messages.appendChild(els.welcome);
+      els.welcome.style.display = '';
+      return;
+    }
+    els.welcome.style.display = 'none';
+
+    for (const msg of chat.messages) {
+      els.messages.appendChild(buildMessageEl(chat, msg));
+    }
+    scrollToBottom(true);
+  }
+
+  function buildMessageEl(chat, msg) {
+    const wrap = document.createElement('div');
+    wrap.className = 'msg ' + msg.role;
+    wrap.dataset.id = msg.id;
+
+    if (msg.role === 'assistant') {
+      const head = document.createElement('div');
+      head.className = 'msg-head';
+      head.innerHTML = '<span class="avatar">AI</span><span>Final AI</span>';
+      wrap.appendChild(head);
+    }
+
+    // Attached files chips
+    if (msg.files && msg.files.length) {
+      const filesRow = document.createElement('div');
+      filesRow.className = 'msg-files';
+      for (const f of msg.files) {
+        const chip = document.createElement('span');
+        chip.className = 'msg-file-chip';
+        chip.innerHTML = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>';
+        const nm = document.createElement('span');
+        nm.textContent = f.name;
+        chip.appendChild(nm);
+        filesRow.appendChild(chip);
+      }
+      wrap.appendChild(filesRow);
+    }
+
+    const bubble = document.createElement('div');
+    bubble.className = 'msg-bubble';
+
+    if (msg.role === 'user') {
+      bubble.textContent = msg.content;
+    } else {
+      bubble.appendChild(renderMarkdown(msg.content || ''));
+      appendProjectDownloads(bubble, msg.content || '');
+    }
+    wrap.appendChild(bubble);
+
+    // Actions
+    const actions = document.createElement('div');
+    actions.className = 'msg-actions';
+
+    const copyBtn = mkAction('نسخ', 'M8 4v12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V7.24a2 2 0 0 0-.6-1.44l-2.2-2.2A2 2 0 0 0 15.76 3H10a2 2 0 0 0-2 2ZM16 20v2a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h2');
+    copyBtn.addEventListener('click', async () => {
+      await navigator.clipboard.writeText(msg.content);
+      toast('تم نسخ الرسالة');
+    });
+    actions.appendChild(copyBtn);
+
+    if (msg.role === 'user') {
+      const editBtn = mkAction('تعديل', 'M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z');
+      editBtn.addEventListener('click', () => startEditMessage(chat, msg, wrap));
+      actions.appendChild(editBtn);
+    } else {
+      const regenBtn = mkAction('إعادة توليد', 'M3 12a9 9 0 0 1 15-6.7L21 8M21 12a9 9 0 0 1-15 6.7L3 16M21 3v5h-5M3 21v-5h5');
+      regenBtn.addEventListener('click', () => regenerateFrom(chat, msg));
+      actions.appendChild(regenBtn);
+    }
+
+    wrap.appendChild(actions);
+    return wrap;
+  }
+
+  function mkAction(label, pathD) {
+    const btn = document.createElement('button');
+    btn.className = 'msg-action-btn';
+    btn.type = 'button';
+    btn.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="${pathD}"/></svg><span>${label}</span>`;
+    return btn;
+  }
+
+  /* ---------- Edit user message ---------- */
+  function startEditMessage(chat, msg, wrapEl) {
+    if (state.streaming) return toast('انتظر انتهاء الرد الحالي', true);
+    const editArea = document.createElement('div');
+    editArea.className = 'msg-edit-area';
+    const ta = document.createElement('textarea');
+    ta.value = msg.content;
+    editArea.appendChild(ta);
+    const btns = document.createElement('div');
+    btns.className = 'msg-edit-buttons';
+    const save = document.createElement('button');
+    save.className = 'primary-btn';
+    save.textContent = 'إرسال';
+    const cancel = document.createElement('button');
+    cancel.className = 'ghost-btn';
+    cancel.textContent = 'إلغاء';
+    btns.appendChild(save);
+    btns.appendChild(cancel);
+    editArea.appendChild(btns);
+
+    wrapEl.querySelector('.msg-bubble').style.display = 'none';
+    wrapEl.querySelector('.msg-actions').style.display = 'none';
+    wrapEl.appendChild(editArea);
+    ta.focus();
+
+    cancel.addEventListener('click', () => renderMessages());
+    save.addEventListener('click', () => {
+      const v = ta.value.trim();
+      if (!v) return;
+      const idx = chat.messages.findIndex((m) => m.id === msg.id);
+      // Truncate everything after this message and resend
+      chat.messages = chat.messages.slice(0, idx);
+      saveChats();
+      sendMessage(v, msg.files || []);
+    });
+  }
+
+  /* ---------- Regenerate ---------- */
+  function regenerateFrom(chat, assistantMsg) {
+    if (state.streaming) return toast('انتظر انتهاء الرد الحالي', true);
+    const idx = chat.messages.findIndex((m) => m.id === assistantMsg.id);
+    if (idx === -1) return;
+    chat.messages = chat.messages.slice(0, idx);
+    saveChats();
+    renderMessages();
+    requestCompletion(chat);
+  }
+
+  /* ================= Scrolling ================= */
+  let autoScroll = true;
+  function scrollToBottom(force) {
+    if (force || autoScroll) {
+      els.chatArea.scrollTop = els.chatArea.scrollHeight;
+    }
+  }
+  els.chatArea.addEventListener('scroll', () => {
+    const nearBottom = els.chatArea.scrollHeight - els.chatArea.scrollTop - els.chatArea.clientHeight < 120;
+    autoScroll = nearBottom;
+    els.scrollBottomBtn.classList.toggle('visible', !nearBottom);
+  });
+  els.scrollBottomBtn.addEventListener('click', () => {
+    autoScroll = true;
+    scrollToBottom(true);
+  });
+
+  /* ================= Networking / Streaming ================= */
+  function buildApiMessages(chat) {
+    const msgs = [{ role: 'system', content: CFG.SYSTEM_PROMPT }];
+    const recent = chat.messages.slice(-CFG.MAX_CONTEXT_MESSAGES);
+    for (const m of recent) {
+      let content = m.content;
+      if (m.role === 'user' && m.filesContext) {
+        content = m.filesContext + '\n\n---\n\n' + content;
+      }
+      msgs.push({ role: m.role, content });
+    }
+    return msgs;
+  }
+
+  async function requestCompletion(chat) {
+    const assistantMsg = { id: uid(), role: 'assistant', content: '' };
+    chat.messages.push(assistantMsg);
+
+    // Render placeholder with typing indicator
+    els.welcome.style.display = 'none';
+    const msgEl = buildMessageEl(chat, assistantMsg);
+    const bubble = msgEl.querySelector('.msg-bubble');
+    bubble.innerHTML = '<div class="typing" aria-label="جارٍ الكتابة"><span></span><span></span><span></span></div>';
+    els.messages.appendChild(msgEl);
+    scrollToBottom(true);
+
+    setStreaming(true);
+    let content = '';
+    let lastRender = 0;
+
+    const renderPartial = (final) => {
+      const now = performance.now();
+      if (!final && now - lastRender < 90) return; // throttle re-renders
+      lastRender = now;
+      bubble.innerHTML = '';
+      const md = renderMarkdown(content);
+      if (!final) {
+        const cursor = document.createElement('span');
+        cursor.className = 'cursor-blink';
+        (md.lastElementChild || md).appendChild(cursor);
+      }
+      bubble.appendChild(md);
+      if (final) appendProjectDownloads(bubble, content);
+      scrollToBottom();
+    };
+
+    let attempt = 0;
+    while (attempt <= CFG.MAX_RETRIES) {
+      state.abortController = new AbortController();
+      try {
+        const res = await fetch(getWorkerUrl() + '/api/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            messages: buildApiMessages(chat),
+            stream: true,
+            temperature: CFG.TEMPERATURE,
+            top_p: CFG.TOP_P,
+            max_tokens: CFG.MAX_TOKENS,
+          }),
+          signal: state.abortController.signal,
+        });
+
+        if (!res.ok) {
+          const errBody = await res.text().catch(() => '');
+          if (res.status === 429) throw new RetryableError('تم تجاوز حد الطلبات — انتظر قليلًا ثم أعد المحاولة');
+          if (res.status >= 500) throw new RetryableError('خطأ في الخادم (' + res.status + ')');
+          throw new Error(parseErrText(errBody) || 'فشل الطلب (' + res.status + ')');
+        }
+
+        // Stream SSE
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let buf = '';
+        for (;;) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buf += decoder.decode(value, { stream: true });
+          const lines = buf.split('\n');
+          buf = lines.pop() || '';
+          for (const line of lines) {
+            const t = line.trim();
+            if (!t.startsWith('data:')) continue;
+            const data = t.slice(5).trim();
+            if (data === '[DONE]') continue;
+            try {
+              const json = JSON.parse(data);
+              const delta = json.choices?.[0]?.delta?.content
+                ?? json.choices?.[0]?.message?.content
+                ?? '';
+              if (delta) {
+                content += delta;
+                assistantMsg.content = content;
+                renderPartial(false);
+              }
+            } catch (_) { /* partial json chunk */ }
+          }
+        }
+
+        // Non-stream fallback: server may return plain JSON
+        if (!content) {
+          try {
+            const maybe = JSON.parse(buf);
+            content = maybe.choices?.[0]?.message?.content || '';
+            assistantMsg.content = content;
+          } catch (_) {}
+        }
+
+        if (!content) throw new RetryableError('لم يصل أي رد من النموذج');
+        renderPartial(true);
+        break; // success
+      } catch (err) {
+        if (err.name === 'AbortError') {
+          assistantMsg.content = content || '';
+          if (!content) {
+            chat.messages.pop();
+            msgEl.remove();
+          } else {
+            renderPartial(true);
+          }
+          break;
+        }
+        const retryable = err instanceof RetryableError || err instanceof TypeError;
+        attempt++;
+        if (retryable && attempt <= CFG.MAX_RETRIES) {
+          bubble.innerHTML = '<div class="typing" aria-label="إعادة المحاولة"><span></span><span></span><span></span></div>';
+          console.log('[v0] Retry attempt', attempt, '-', err.message);
+          await new Promise((r) => setTimeout(r, CFG.RETRY_DELAY_MS * attempt));
+          continue;
+        }
+        // Final failure
+        chat.messages.pop();
+        msgEl.remove();
+        const friendly = err instanceof TypeError
+          ? 'تعذّر الاتصال بالخادم — تأكد من ضبط رابط الـ Worker في config.js ومن اتصالك بالإنترنت'
+          : (err.message || 'حدث خطأ غير متوقع');
+        toast(friendly, true);
+        break;
+      }
+    }
+
+    setStreaming(false);
+    state.abortController = null;
+    chat.updatedAt = Date.now();
+    saveChats();
+    renderMessages();
+  }
+
+  class RetryableError extends Error {}
+
+  function parseErrText(body) {
+    try {
+      const j = JSON.parse(body);
+      return j.error?.message || j.error || j.message || '';
+    } catch (_) { return body.slice(0, 200); }
+  }
+
+  function setStreaming(on) {
+    state.streaming = on;
+    els.sendBtn.classList.toggle('streaming', on);
+    els.sendBtn.disabled = false;
+    els.promptInput.disabled = false;
+    if (!on) updateSendState();
+  }
+
+  function stopStreaming() {
+    if (state.abortController) state.abortController.abort();
+  }
+
+  /* ================= Sending ================= */
+  async function sendMessage(text, existingFiles) {
+    let chat = activeChat();
+    if (!chat) chat = createChat();
+
+    const files = existingFiles && existingFiles.length ? existingFiles : state.attachments.slice();
+    const filesContext = files.length ? Files.buildFilesContext(files) : '';
+
+    const userMsg = {
+      id: uid(),
+      role: 'user',
+      content: text,
+      files: files.length ? files.map((f) => ({ name: f.name, size: f.size, kind: f.kind })) : undefined,
+      filesContext: filesContext || undefined,
+    };
+    chat.messages.push(userMsg);
+
+    // Auto-title from first message
+    if (chat.messages.filter((m) => m.role === 'user').length === 1) {
+      chat.title = text.slice(0, 42) + (text.length > 42 ? '…' : '');
+      els.topbarTitle.textContent = chat.title;
+    }
+
+    // Reset composer
+    state.attachments = [];
+    renderAttachments();
+    els.promptInput.value = '';
+    autosize();
+    updateSendState();
+
+    chat.updatedAt = Date.now();
+    saveChats();
+    renderChatList();
+
+    // Append user message to DOM
+    els.welcome.style.display = 'none';
+    els.messages.appendChild(buildMessageEl(chat, userMsg));
+    autoScroll = true;
+    scrollToBottom(true);
+
+    await requestCompletion(chat);
+  }
+
+  /* ================= Composer ================= */
+  function autosize() {
+    const ta = els.promptInput;
+    ta.style.height = 'auto';
+    ta.style.height = Math.min(ta.scrollHeight, 200) + 'px';
+  }
+
+  function updateSendState() {
+    if (state.streaming) return;
+    const has = els.promptInput.value.trim().length > 0 || state.attachments.length > 0;
+    els.sendBtn.disabled = !has;
+  }
+
+  els.promptInput.addEventListener('input', () => { autosize(); updateSendState(); });
+
+  els.promptInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      // CJK IME composition guard
+      if (e.isComposing || e.keyCode === 229) return;
+      e.preventDefault();
+      trySend();
+    }
+  });
+
+  els.sendBtn.addEventListener('click', () => {
+    if (state.streaming) { stopStreaming(); return; }
+    trySend();
+  });
+
+  function trySend() {
+    if (state.streaming) return;
+    const text = els.promptInput.value.trim();
+    if (!text && !state.attachments.length) return;
+    sendMessage(text || 'حلّل الملفات المرفقة');
+  }
+
+  /* ================= Attachments UI ================= */
+  els.attachBtn.addEventListener('click', () => els.fileInput.click());
+  els.fileInput.addEventListener('change', () => {
+    handleFiles(Array.from(els.fileInput.files || []));
+    els.fileInput.value = '';
+  });
+
+  async function handleFiles(fileList) {
+    for (const file of fileList) {
+      const pending = {
+        name: file.name,
+        size: file.size,
+        kind: 'pending',
+        text: '',
+        status: 'جارٍ التحليل...',
+      };
+      state.attachments.push(pending);
+      renderAttachments();
+      try {
+        const parsed = await Files.extractFileContent(file, (s) => {
+          pending.status = s;
+          renderAttachments();
+        });
+        Object.assign(pending, parsed, { status: 'جاهز' });
+      } catch (err) {
+        state.attachments = state.attachments.filter((a) => a !== pending);
+        toast(`${file.name}: ${err.message}`, true);
+      }
+      renderAttachments();
+      updateSendState();
+    }
+  }
+
+  function renderAttachments() {
+    els.attachments.innerHTML = '';
+    for (const att of state.attachments) {
+      const chip = document.createElement('div');
+      chip.className = 'attachment-chip';
+
+      if (att.kind === 'image' && att.dataUrl) {
+        const img = document.createElement('img');
+        img.className = 'att-thumb';
+        img.src = att.dataUrl;
+        img.alt = att.name;
+        chip.appendChild(img);
+      } else {
+        chip.insertAdjacentHTML('beforeend',
+          '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><path d="M14 2v6h6"/></svg>');
+      }
+
+      const nm = document.createElement('span');
+      nm.className = 'att-name';
+      nm.textContent = att.name;
+      chip.appendChild(nm);
+
+      const st = document.createElement('span');
+      st.className = 'att-status';
+      st.textContent = att.status === 'جاهز' ? Files.formatSize(att.size) : att.status;
+      chip.appendChild(st);
+
+      const rm = document.createElement('button');
+      rm.className = 'att-remove';
+      rm.setAttribute('aria-label', 'إزالة المرفق');
+      rm.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>';
+      rm.addEventListener('click', () => {
+        state.attachments = state.attachments.filter((a) => a !== att);
+        renderAttachments();
+        updateSendState();
+      });
+      chip.appendChild(rm);
+
+      els.attachments.appendChild(chip);
+    }
+  }
+
+  /* ================= Drag & Drop ================= */
+  let dragDepth = 0;
+  window.addEventListener('dragenter', (e) => {
+    if (!e.dataTransfer?.types?.includes('Files')) return;
+    dragDepth++;
+    els.dropOverlay.classList.add('active');
+  });
+  window.addEventListener('dragleave', () => {
+    dragDepth = Math.max(0, dragDepth - 1);
+    if (!dragDepth) els.dropOverlay.classList.remove('active');
+  });
+  window.addEventListener('dragover', (e) => e.preventDefault());
+  window.addEventListener('drop', (e) => {
+    e.preventDefault();
+    dragDepth = 0;
+    els.dropOverlay.classList.remove('active');
+    const files = Array.from(e.dataTransfer?.files || []);
+    if (files.length) handleFiles(files);
+  });
+
+  /* ================= Sidebar (mobile) ================= */
+  function closeSidebarMobile() {
+    els.app.classList.remove('sidebar-open');
+  }
+  els.sidebarOpen.addEventListener('click', () => els.app.classList.add('sidebar-open'));
+  els.sidebarClose.addEventListener('click', closeSidebarMobile);
+  els.sidebarOverlay.addEventListener('click', closeSidebarMobile);
+
+  /* ================= Search ================= */
+  els.chatSearch.addEventListener('input', () => {
+    state.searchQuery = els.chatSearch.value;
+    renderChatList();
+  });
+
+  /* ================= Settings ================= */
+  els.settingsBtn.addEventListener('click', () => {
+    els.workerUrlInput.value = localStorage.getItem('finalai:workerUrl') || '';
+    els.settingsModal.hidden = false;
+  });
+  els.settingsClose.addEventListener('click', () => (els.settingsModal.hidden = true));
+  els.settingsModal.addEventListener('click', (e) => {
+    if (e.target === els.settingsModal) els.settingsModal.hidden = true;
+  });
+  els.settingsSave.addEventListener('click', () => {
+    const v = els.workerUrlInput.value.trim();
+    if (v && !/^https?:\/\//.test(v)) {
+      toast('رابط غير صالح — يجب أن يبدأ بـ https://', true);
+      return;
+    }
+    if (v) localStorage.setItem('finalai:workerUrl', v);
+    else localStorage.removeItem('finalai:workerUrl');
+    els.settingsModal.hidden = true;
+    toast('تم حفظ الإعدادات');
+  });
+  els.clearAllBtn.addEventListener('click', async () => {
+    els.settingsModal.hidden = true;
+    const ok = await confirmDialog('سيتم حذف جميع المحادثات نهائيًا. هل أنت متأكد؟');
+    if (!ok) return;
+    state.chats = [];
+    state.activeChatId = null;
+    saveChats();
+    renderChatList();
+    renderMessages();
+    toast('تم حذف جميع المحادثات');
+  });
+
+  /* ================= Misc wiring ================= */
+  els.newChatBtn.addEventListener('click', createChat);
+  els.themeToggle.addEventListener('click', toggleTheme);
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      if (!els.settingsModal.hidden) els.settingsModal.hidden = true;
+      if (!els.confirmModal.hidden) { els.confirmModal.hidden = true; if (confirmResolve) confirmResolve(false); }
+    }
+  });
+
+  // Suggestions
+  document.querySelectorAll('.suggestion').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      els.promptInput.value = btn.dataset.prompt || '';
+      autosize();
+      updateSendState();
+      els.promptInput.focus();
+    });
+  });
+
+  /* ================= Service worker (offline cache) ================= */
+  if ('serviceWorker' in navigator && location.protocol === 'https:') {
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+  }
+
+  /* ================= Init ================= */
+  initTheme();
+  loadChats();
+  if (state.chats.length) state.activeChatId = state.chats[0].id;
+  renderChatList();
+  renderMessages();
+  updateSendState();
+})();

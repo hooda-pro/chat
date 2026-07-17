@@ -1,0 +1,216 @@
+/* ============================================================
+   Final AI — Cloudflare Worker (API Proxy)
+   ------------------------------------------------------------
+   Proxies chat requests to the NVIDIA API
+   (nvidia/nemotron-3-ultra-550b-a55b) while keeping the API key
+   as an encrypted Worker Secret. The key NEVER reaches the browser.
+
+   Secrets required (set via `wrangler secret put`):
+     - NVIDIA_API_KEY   : your NVIDIA API key (nvapi-...)
+
+   Optional environment vars (wrangler.toml [vars]):
+     - ALLOWED_ORIGINS  : comma-separated list of allowed origins
+                          e.g. "https://username.github.io"
+                          use "*" to allow all (not recommended in prod)
+     - RATE_LIMIT_RPM   : max requests per minute per IP (default 20)
+     - MODEL_ID         : override the model id
+   ============================================================ */
+
+const NVIDIA_ENDPOINT = 'https://integrate.api.nvidia.com/v1/chat/completions';
+const DEFAULT_MODEL = 'nvidia/nemotron-3-ultra-550b-a55b';
+const DEFAULT_RPM = 20;
+const MAX_BODY_BYTES = 1_500_000; // ~1.5MB request body cap
+const MAX_MESSAGES = 60;
+
+/* ---------------- Rate limiting (in-memory per isolate) ----------------
+   Simple sliding-window limiter. For strict global limits across all
+   Worker isolates, bind a KV namespace or Durable Object instead. */
+const rateBuckets = new Map();
+
+function isRateLimited(ip, rpm) {
+  const now = Date.now();
+  const windowMs = 60_000;
+  let bucket = rateBuckets.get(ip);
+  if (!bucket) {
+    bucket = [];
+    rateBuckets.set(ip, bucket);
+  }
+  // drop entries older than the window
+  while (bucket.length && bucket[0] < now - windowMs) bucket.shift();
+  if (bucket.length >= rpm) return true;
+  bucket.push(now);
+  // opportunistic cleanup to bound memory
+  if (rateBuckets.size > 5000) {
+    for (const [k, v] of rateBuckets) {
+      if (!v.length || v[v.length - 1] < now - windowMs) rateBuckets.delete(k);
+    }
+  }
+  return false;
+}
+
+/* ---------------- CORS ---------------- */
+function corsHeaders(request, env) {
+  const origin = request.headers.get('Origin') || '';
+  const allowed = (env.ALLOWED_ORIGINS || '*').split(',').map((s) => s.trim());
+  const allowOrigin = allowed.includes('*')
+    ? '*'
+    : (allowed.includes(origin) ? origin : allowed[0] || '');
+
+  return {
+    'Access-Control-Allow-Origin': allowOrigin,
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type',
+    'Access-Control-Max-Age': '86400',
+    'Vary': 'Origin',
+  };
+}
+
+function json(data, status, extraHeaders) {
+  return new Response(JSON.stringify(data), {
+    status: status || 200,
+    headers: { 'Content-Type': 'application/json', ...extraHeaders },
+  });
+}
+
+/* ---------------- Validation ---------------- */
+function validatePayload(payload) {
+  if (!payload || typeof payload !== 'object') return 'invalid payload';
+  if (!Array.isArray(payload.messages) || payload.messages.length === 0) return 'messages array required';
+  if (payload.messages.length > MAX_MESSAGES) return 'too many messages';
+  for (const m of payload.messages) {
+    if (!m || typeof m !== 'object') return 'invalid message';
+    if (!['system', 'user', 'assistant'].includes(m.role)) return 'invalid message role';
+    if (typeof m.content !== 'string') return 'invalid message content';
+  }
+  return null;
+}
+
+function clamp(n, min, max, fallback) {
+  const v = Number(n);
+  if (!Number.isFinite(v)) return fallback;
+  return Math.min(max, Math.max(min, v));
+}
+
+/* ---------------- Main ---------------- */
+export default {
+  async fetch(request, env) {
+    const cors = corsHeaders(request, env);
+
+    // Preflight
+    if (request.method === 'OPTIONS') {
+      return new Response(null, { status: 204, headers: cors });
+    }
+
+    const url = new URL(request.url);
+
+    // Health check
+    if (url.pathname === '/api/health') {
+      return json({ ok: true, service: 'final-ai-proxy' }, 200, cors);
+    }
+
+    // Friendly landing response when the Worker URL is opened in a browser
+    if (url.pathname === '/' || url.pathname === '') {
+      return json(
+        {
+          ok: true,
+          service: 'Final AI Proxy',
+          status: env.NVIDIA_API_KEY ? 'ready' : 'missing NVIDIA_API_KEY secret',
+          usage: 'هذا الخادم يعمل بنجاح ✅ — ضع هذا الرابط في assets/js/config.js (WORKER_URL) أو في إعدادات الموقع. الواجهة تتصل تلقائيًا بالمسار /api/chat',
+          endpoints: { chat: 'POST /api/chat', health: 'GET /api/health' },
+        },
+        200,
+        cors
+      );
+    }
+
+    if (url.pathname !== '/api/chat') {
+      return json({ error: { message: 'Not found' } }, 404, cors);
+    }
+
+    if (request.method !== 'POST') {
+      return json({ error: { message: 'Method not allowed' } }, 405, cors);
+    }
+
+    // Secret check
+    if (!env.NVIDIA_API_KEY) {
+      return json({ error: { message: 'الخادم غير مهيأ: مفتاح NVIDIA_API_KEY غير موجود في Secrets' } }, 500, cors);
+    }
+
+    // Rate limiting per client IP
+    const ip = request.headers.get('CF-Connecting-IP') || 'unknown';
+    const rpm = clamp(env.RATE_LIMIT_RPM, 1, 1000, DEFAULT_RPM);
+    if (isRateLimited(ip, rpm)) {
+      return json(
+        { error: { message: 'تم تجاوز حد الطلبات المسموح. حاول مرة أخرى بعد دقيقة.' } },
+        429,
+        { ...cors, 'Retry-After': '60' }
+      );
+    }
+
+    // Body size guard
+    const contentLength = Number(request.headers.get('Content-Length') || 0);
+    if (contentLength > MAX_BODY_BYTES) {
+      return json({ error: { message: 'حجم الطلب كبير جدًا' } }, 413, cors);
+    }
+
+    // Parse and validate
+    let payload;
+    try {
+      payload = await request.json();
+    } catch (_) {
+      return json({ error: { message: 'JSON غير صالح' } }, 400, cors);
+    }
+    const validationError = validatePayload(payload);
+    if (validationError) {
+      return json({ error: { message: validationError } }, 400, cors);
+    }
+
+    // Build the upstream request — parameters are clamped server-side
+    const upstreamBody = {
+      model: env.MODEL_ID || DEFAULT_MODEL,
+      messages: payload.messages,
+      stream: payload.stream !== false,
+      temperature: clamp(payload.temperature, 0, 2, 0.6),
+      top_p: clamp(payload.top_p, 0, 1, 0.95),
+      max_tokens: clamp(payload.max_tokens, 1, 8192, 4096),
+    };
+
+    let upstream;
+    try {
+      upstream = await fetch(NVIDIA_ENDPOINT, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${env.NVIDIA_API_KEY}`,
+          'Content-Type': 'application/json',
+          'Accept': upstreamBody.stream ? 'text/event-stream' : 'application/json',
+        },
+        body: JSON.stringify(upstreamBody),
+      });
+    } catch (err) {
+      return json({ error: { message: 'تعذّر الاتصال بخدمة النموذج' } }, 502, cors);
+    }
+
+    if (!upstream.ok) {
+      const errText = await upstream.text().catch(() => '');
+      let message = `خطأ من خدمة النموذج (${upstream.status})`;
+      try {
+        const parsed = JSON.parse(errText);
+        // Never leak upstream auth details to the client
+        if (upstream.status !== 401 && upstream.status !== 403) {
+          message = parsed.error?.message || parsed.detail || message;
+        }
+      } catch (_) {}
+      const status = upstream.status === 429 ? 429 : 502;
+      return json({ error: { message } }, status, cors);
+    }
+
+    // Stream the response straight through (SSE) or pass JSON
+    const headers = {
+      ...cors,
+      'Content-Type': upstreamBody.stream ? 'text/event-stream' : 'application/json',
+      'Cache-Control': 'no-store',
+      'X-Content-Type-Options': 'nosniff',
+    };
+    return new Response(upstream.body, { status: 200, headers });
+  },
+};
