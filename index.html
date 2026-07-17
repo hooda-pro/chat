@@ -5,7 +5,40 @@
 <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
 <meta name="theme-color" content="#020617">
 <meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="google-site-verification" content="Rc0zgkeYLonK2_SiGcGgE8xjTI115YwYJNS3NVcve3A" />
 <title>فانيل AI | Vanil AI</title>
+<!-- ===== SEO: عشان محركات البحث (جوجل وغيرها) تفهرس الموقع تحت أسماء
+     "فانيل" / "فانيل AI" / "Vanil AI" / "Vanil" وتربطه برابط الموقع الفعلي.
+     ملاحظة مهمة: الميتاتاجز دي شرط ضروري بس مش كافي وحدها للظهور في نتائج
+     البحث فوراً — لسه محتاج جوجل يزحف (crawl) على الرابط ويفهرسه، وده بياخد
+     وقت (من كام يوم لكام أسبوع) حتى مع الإعداد الصح. أسرع طريقة تسرّع الموضوع:
+     تسجيل الرابط في Google Search Console (search.google.com/search-console)
+     وتطلب فهرسة يدوية (Request Indexing)، وكل ما حد يعمل لينك للموقع من مكان
+     تاني (سوشيال ميديا، منتدى...) كل ده بيقوّي ظهوره في النتائج بمرور الوقت. -->
+<meta name="description" content="فانيل AI (Vanil AI) - مساعد ذكاء اصطناعي عربي للمحادثة والبرمجة وتحليل الملفات والصور. جرّب فانيل الآن مجاناً.">
+<meta name="keywords" content="فانيل, فانيل AI, Vanil AI, Vanil, vanil ai, دردشة ذكاء اصطناعي, مساعد ذكي عربي">
+<meta name="author" content="Mahmoud Ahmed Saeed">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://hooda-pro.github.io/chat/">
+<meta property="og:type" content="website">
+<meta property="og:title" content="فانيل AI | Vanil AI">
+<meta property="og:description" content="مساعد ذكاء اصطناعي عربي للمحادثة والبرمجة وتحليل الملفات والصور.">
+<meta property="og:url" content="https://hooda-pro.github.io/chat/">
+<meta property="og:site_name" content="فانيل AI">
+<meta property="og:locale" content="ar_AR">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="فانيل AI | Vanil AI">
+<meta name="twitter:description" content="مساعد ذكاء اصطناعي عربي للمحادثة والبرمجة وتحليل الملفات والصور.">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebSite",
+  "name": "فانيل AI",
+  "alternateName": ["Vanil AI", "فانيل", "Vanil"],
+  "url": "https://hooda-pro.github.io/chat/",
+  "author": {"@type": "Person", "name": "Mahmoud Ahmed Saeed"}
+}
+</script>
 <style>
 /* ===== RESET ===== */
 *,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
@@ -549,7 +582,7 @@ header{
             </button>
             <div class="model-dropdown-list" id="modelDropdownList">
               <div class="model-dropdown-item" data-model="auto" title="يختار تلقائياً حسب الرسالة">🤖 تلقائي</div>
-              <div class="model-dropdown-item" data-model="gpt" title="دردشة نصية عامة">💬 GPT عام</div>
+              <div class="model-dropdown-item" data-model="gpt" title="دردشة نصية عامة">💬 دردشة نصية</div>
               <div class="model-dropdown-item" data-model="code" title="نموذج برمجة عادي — بيجرب موديل بديل تلقائياً لو الأول مشغول">💻 برمجة</div>
               <div class="model-dropdown-item" data-model="fastcode" title="نموذج برمجة سريع مخصص — DeepSeek V4 Pro عبر NVIDIA فقط، من غير بدائل">⚡ برمجة_سريع</div>
             </div>
@@ -660,12 +693,17 @@ function getProviderFor(kind,model){
   return{endpoint:`${CONFIG.proxyUrl}/groq`,apiKeys:['']};
 }
 // بعض الموديلات محتاجة باراميترات إضافية في الـ body غير القياسي عشان تشتغل صح.
-// deepseek-ai/deepseek-v4-pro تحديداً: من غير extra_body.chat_template_kwargs.thinking=false
+// deepseek-ai/deepseek-v4-pro تحديداً: من غير chat_template_kwargs.thinking=false
 // الموديل بيدخل في وضع "تفكير" ممتد والطلب بيفضل معلّق من غير أي رد يوصل خالص (باگ موثّق
 // في NVIDIA NIM لعائلة deepseek-v4) — top_p:0.95 هو الموصى بيه رسمياً في مثال NVIDIA نفسه.
+// ⚠️ تصحيح: extra_body مش اسم حقيقي لباراميتر في الـ REST API — ده مجرد مفهوم داخلي في
+// مكتبة OpenAI بايثون بس (بيدمج محتواه في جذر الـ body قبل ما يبعته فعلياً). إحنا بنكلم
+// endpoint الـ REST الخام مباشرة بـ fetch، فلازم chat_template_kwargs يبقى في جذر الـ
+// body direct، لا يتلف جوه مفتاح اسمه extra_body — ده اللي كان بيسبب خطأ 400
+// "Unsupported parameter(s): `extra_body`".
 function getExtraParamsFor(model){
   if(model==='deepseek-ai/deepseek-v4-pro'){
-    return{top_p:0.95,extra_body:{chat_template_kwargs:{thinking:false}}};
+    return{top_p:0.95,chat_template_kwargs:{thinking:false}};
   }
   return{};
 }
@@ -1196,6 +1234,22 @@ function isEditIntent(text){
   const t=text.toLowerCase();
   return kw.some(k=>t.includes(k.toLowerCase()));
 }
+// ===== "ملف افتراضي" (Virtual File) =====
+// لو المستخدم طلب تعديل من غير ما يرفع ملف في نفس الرسالة (مثال: "اعمل موقع" في رسالة،
+// وبعدين "خلي الزرار أحمر" في رسالة تانية من غير رفع تاني)، بندوّر في تاريخ نفس المحادثة
+// على آخر رد من الموديل فيه ملف اتولّد (genFiles)، ونستخدمه كأنه ملف مرفوع فعلاً عشان
+// نطبّق عليه نفس منطق "التعديل الجزئي" (performTargetedFileEdit) بدل ما نضطر نطلب من
+// الموديل يعيد كتابة/توليد الموقع من الصفر تاني.
+function getLastGeneratedFile(){
+  for(let i=state.messages.length-1;i>=0;i--){
+    const m=state.messages[i];
+    if(m.role==='assistant'&&m.genFiles&&m.genFiles.length){
+      // لو الرد فيه أكتر من ملف، ناخد الأكبر (غالباً هو الملف الرئيسي/الموقع الكامل)
+      return m.genFiles.reduce((a,b)=>((b.content||'').length>(a.content||'').length?b:a));
+    }
+  }
+  return null;
+}
 // يحدد الجزء الأنسب من الملف الكبير (محلياً بالكلمات المفتاحية، وبمساعدة الموديل لو محتاج)، يعدله، ويدمجه في الملف الكامل محلياً
 async function performTargetedFileEdit(userText,file,codeKind='code'){
   const lines=file.content.split('\n');
@@ -1209,16 +1263,40 @@ async function performTargetedFileEdit(userText,file,codeKind='code'){
     // ملف صغير أصلاً، مفيش داعي للتقسيم؛ نسيب المسار العادي يتكفل بيه
     return null;
   }
+  // نضيف كلمات آخر رسالة مستخدم سابقة (لو موجودة) كسياق مساعد ضعيف: مفيد لما المستخدم
+  // يشاور على حاجة اتكلم عنها قبل كده مباشرة ("زرار الحفظ" في رسالة، "خليه أحمر" في اللي بعدها)
+  // من غير ما يبهدل دقة الكلمات المفتاحية بتاعة الطلب الحالي (اللي ليها الأولوية دايماً).
+  const priorUserMsgs=state.messages.filter(m=>m.role==='user');
+  const priorContext=priorUserMsgs.length>1?priorUserMsgs[priorUserMsgs.length-2].content:'';
   const keywords=extractKeywords(userText);
-  const scored=chunks.map((c,i)=>({i,score:scoreChunk(c,keywords)})).sort((a,b)=>b.score-a.score);
+  const contextKeywords=extractKeywords(priorContext);
+  const scored=chunks.map((c,i)=>({i,score:scoreChunk(c,keywords)*3+scoreChunk(c,contextKeywords)})).sort((a,b)=>b.score-a.score);
   let candidateIdxs=(keywords.length&&scored[0].score>0)?scored.slice(0,5).filter(c=>c.score>0).map(c=>c.i):chunks.map((_,i)=>i);
 
   state.streamingContent=`🔍 الملف فيه ${totalLines.toLocaleString('ar-EG')} سطر مقسّم لـ ${chunks.length} قطعة، بدوّر على الجزء اللي محتاج تعديل...`;renderStreamingMsg();
 
   let targetIdx=candidateIdxs[0];
   if(candidateIdxs.length>1){
-    const shortlisted=candidateIdxs.slice(0,8);
-    const outline=shortlisted.map(i=>`قطعة ${i+1} (من سطر ${chunks[i].start} إلى ${chunks[i].end}):\n${chunks[i].content.split('\n').slice(0,3).join('\n')}`).join('\n---\n');
+    let shortlisted;
+    if(candidateIdxs.length<=8){
+      shortlisted=candidateIdxs;
+    }else if(keywords.length&&scored[0].score>0){
+      // دي فعلاً أفضل النتائج بترتيب الكلمات المفتاحية، الترتيب هنا مهم فنسيبه زي ما هو
+      shortlisted=candidateIdxs.slice(0,8);
+    }else{
+      // مفيش تطابق كلمات مفتاحية خالص (مثلاً طلب وصفي زي "خلي الألوان أهدى")؛ بدل ما ناخد
+      // أول 8 قطع بس ونتجاهل باقي الملف بالكامل، بنوزّع العينة بالتساوي من أول الملف لآخره
+      // عشان الموديل يشوف نموذج من كل مكان قبل ما يقرر.
+      const step=Math.max(1,Math.floor(candidateIdxs.length/8));
+      shortlisted=[];
+      for(let s=0;s<candidateIdxs.length&&shortlisted.length<8;s+=step)shortlisted.push(candidateIdxs[s]);
+    }
+    const outline=shortlisted.map(i=>{
+      const ls=chunks[i].content.split('\n');
+      const head=ls.slice(0,8).join('\n');
+      const tail=ls.length>11?'\n...\n'+ls.slice(-3).join('\n'):'';
+      return `قطعة ${i+1} (من سطر ${chunks[i].start} إلى ${chunks[i].end}):\n${head}${tail}`;
+    }).join('\n---\n');
     try{
       const{res:locRes}=await callModelWithFallback(codeKind,{
         temperature:0,max_tokens:20,stream:false,messages:[
@@ -1452,15 +1530,32 @@ async function doSend(content,files,images,isCall=false){
     // اختيار النموذج: لو المستخدم اختار نموذجاً بنفسه من الدروب داون، نلتزم به ولا نستخدم أي نموذج آخر.
     // فقط في وضع "تلقائي" نكتشف نوع الطلب (برمجة أو عام) بأنفسنا (وهنا بيميل لـ"code" العادي
     // بدائله، مش برمجة_سريع اللي المستخدم لازم يختارها بنفسه بالاسم عشان تتفعّل).
+    // طلب زي "خلي الزرار أحمر" مفيهوش أي كلمة "كود/برمجة" صريحة، فمش هيتصنّف كـisCodingRequest،
+    // لكنه فعلياً طلب تعديل على كود اتولّد قبل كده في نفس المحادثة — نتعامل معه كطلب برمجة برضو
+    // عشان ميروحش لموديل الشات العام من غير أي سياق عن الملف.
+    const referencesGeneratedFile=!files.length&&isEditIntent(content)&&!!getLastGeneratedFile();
     const codeKind = state.selectedModel==='fastcode' ? 'fastcode'
                     : state.selectedModel==='code' ? 'code'
                     : state.selectedModel==='gpt' ? null
-                    : (isCodingRequest(content)||hasCodeFile(files)) ? 'code' : null;
+                    : (isCodingRequest(content)||hasCodeFile(files)||referencesGeneratedFile) ? 'code' : null;
     const useCodeModel = !!codeKind;
 
     // لملفات الكود الكبيرة: بدل ما نبعت الملف كامل للموديل (وهو غالباً هيقصّه أو يبعت جزء بس)،
     // نحدد الجزء المطلوب تعديله بحثاً محلياً + مساعدة الموديل، نعدله وحده، وندمجه في الملف الأصلي كامل هنا في المتصفح.
-    const singleTextFile=(files.length===1&&files[0].isText)?files[0]:null;
+    let singleTextFile=(files.length===1&&files[0].isText)?files[0]:null;
+    // ملف افتراضي: المستخدم ما رفعش ملف في الرسالة دي، لكن طلب تعديل، وفيه كود اتولّد
+    // قبل كده في نفس المحادثة — نستخدمه كأنه مرفق فعلاً بدل ما نطلب من الموديل يبني
+    // من الصفر تاني أو يعيد توليد الموقع كله من غير داعي.
+    if(!singleTextFile&&!files.length&&useCodeModel&&isEditIntent(content)){
+      const lastGen=getLastGeneratedFile();
+      if(lastGen){
+        singleTextFile={name:lastGen.name,type:'text/plain',size:lastGen.content.length,content:lastGen.content,isText:true};
+        // نحقن الملف الافتراضي في files المحلية بس (مش في userMsg.files اللي اتحفظ فوق
+        // بالفعل) عشان لو مسار "التعديل الجزئي" ما نفعش (ملف صغير) يفضل باقي الكود تحت
+        // (اللي بيبني apiMsgs من files، وبيتأكد إن الرد كامل) شغال زي ما هو من غير تكرار كود.
+        files=[singleTextFile];
+      }
+    }
     if(useCodeModel&&singleTextFile&&isEditIntent(content)){
       try{
         const result=await performTargetedFileEdit(content,singleTextFile,codeKind);
@@ -1557,19 +1652,29 @@ ${useCodeModel?codeFilePrompt:`
 
     state.streamingContent='';
     const onPartial=(partial)=>{if(partial&&chatMessages.querySelector('.typing'))showTyping(false);state.streamingContent=partial;renderStreamingMsg()};
+    // في وضع البرمجة عمداً بنتجاهل كل توكن بيوصل (onCodeToken فارغة) بدل onPartial: مش عايزين
+    // الكود الخام يبان وهو بيتكتب حرف حرف في الشات كأنه رسالة عادية — ده اللي بيحصل مع
+    // onPartial (بتنده renderStreamingMsg اللي بتعرض النص الخام فوراً). بدل كده، فقاعة
+    // "بنيلك الكود..." الدوّارة (startBuildStatusRotation) بتفضل ظاهرة طول فترة التوليد،
+    // ولما الرد يخلص بالكامل بس، بيتحوّل الكود لملف قابل للتحميل ويتبعت للمستخدم دفعة واحدة.
+    const onCodeToken=()=>{};
     let full;
     if(useCodeModel){
       // برمجة أو برمجة_سريع (حسب codeKind): نداء مباشر لموديل واحد بس من القايمة المختارة —
       // مفيش دمج ولا استدعاء متوازي لموديلات تانية زي ما كان بيحصل قبل كده (شوف الملاحظة
       // فوق مكان getCollaborativeCodeResponse القديمة). نفس منطق الـ fallback/streaming
       // العادي (streamModelWithFallback) بيتطبّق هنا زي أي موديل تاني.
-      setStatus(files.length?'جاري تحليل الملف المرفوع...':'جاري تحليل طلبك...');
+      setStatus(files.length?'📂 جاري تحليل الملف المرفوع...':'🔍 جاري تحليل طلبك...');
       await new Promise(r=>setTimeout(r,500));
-      setStatus('جاري إنشاء الكود الآن...');
-      const{full:fastFull}=await streamModelWithFallback(codeKind,{
-        messages:apiMsgs,temperature:0.4,max_tokens:16000
-      },onPartial,timeoutMs);
-      full=fastFull;
+      startBuildStatusRotation();
+      try{
+        const{full:fastFull}=await streamModelWithFallback(codeKind,{
+          messages:apiMsgs,temperature:0.4,max_tokens:16000
+        },onCodeToken,timeoutMs);
+        full=fastFull;
+      }finally{
+        stopBuildStatusRotation();
+      }
     }else{
       const{full:streamedFull}=await streamModelWithFallback('general',{
         messages:apiMsgs,temperature:0.7,max_tokens:4096,top_p:1
@@ -1666,6 +1771,31 @@ function showTyping(show,status){
 }
 function setStatus(text){showTyping(true,text)}
 
+// ===== حالة "بنيلك الكود" المتغيّرة =====
+// لوضع البرمجة (برمجة / برمجة_سريع): بدل ما نسيب فقاعة الحالة على جملة واحدة ثابتة
+// طول فترة التوليد (اللي ممكن تاخد وقت)، بنلف على مجموعة جمل مختلفة كل شوية عشان
+// يبان إن فيه شغل فعلي ماشي وميحسسش المستخدم بالملل أو إنه عالق.
+const CODE_BUILD_STATUSES=[
+  '🔨 بنيلك الكود دلوقتي...',
+  '🧠 بفكر في أفضل طريقة تنفيذ...',
+  '⚙️ بكتب الأجزاء الأساسية...',
+  '🧩 بربط الأجزاء ببعض...',
+  '🔍 براجع وأتأكد إن كل حاجة مظبوطة...',
+  '🧹 بنضّف وبحسّن الكود...',
+  '📦 قربنا نخلص، بجهزلك الملف...'
+];
+let buildStatusTimer=null;
+function startBuildStatusRotation(){
+  let i=0;
+  setStatus(CODE_BUILD_STATUSES[0]);
+  clearInterval(buildStatusTimer);
+  buildStatusTimer=setInterval(()=>{
+    i=(i+1)%CODE_BUILD_STATUSES.length;
+    setStatus(CODE_BUILD_STATUSES[i]);
+  },2600);
+}
+function stopBuildStatusRotation(){clearInterval(buildStatusTimer);buildStatusTimer=null}
+
 function copyMsg(i){const msg=state.messages[i];if(!msg)return;navigator.clipboard.writeText(msg.content).catch(()=>{const ta=document.createElement('textarea');ta.value=msg.content;document.body.appendChild(ta);ta.select();document.execCommand('copy');document.body.removeChild(ta)});showToast('تم النسخ')}
 function retryMsg(){const userMsgs=state.messages.filter(m=>m.role==='user');if(!userMsgs.length)return;const last=userMsgs[userMsgs.length-1];if(state.messages[state.messages.length-1]?.role==='assistant')state.messages.pop();renderMessages();saveState();doSend(last.content,last.files||[],last.images||[])}
 
@@ -1731,7 +1861,7 @@ window.addEventListener('resize',()=>{
 // ===== MODEL DROPDOWN =====
 // موديل واحد بس مختار وظاهر في كل لحظة (في الزرار)، وضغطة على السهم بتفتح قايمة
 // تختار منها بدل ما تبان كل الموديلات جنب بعض زي المبدّل القديم.
-const MODEL_BTN_LABELS={auto:'🤖 تلقائي',gpt:'💬 GPT عام',code:'💻 برمجة',fastcode:'⚡ برمجة_سريع'};
+const MODEL_BTN_LABELS={auto:'🤖 تلقائي',gpt:'💬 دردشة نصية',code:'💻 برمجة',fastcode:'⚡ برمجة_سريع'};
 function renderModelSwitcher(){
   modelDropdownLabel.textContent=MODEL_BTN_LABELS[state.selectedModel]||MODEL_BTN_LABELS.auto;
   modelDropdownList.querySelectorAll('.model-dropdown-item').forEach(it=>{
@@ -1747,7 +1877,7 @@ modelDropdownList.querySelectorAll('.model-dropdown-item').forEach(it=>{
     state.selectedModel=it.dataset.model;
     renderModelSwitcher();saveState();
     modelDropdown.classList.remove('open');
-    const labels={auto:'الوضع التلقائي',gpt:'GPT العام',code:'برمجة',fastcode:'برمجة_سريع (DeepSeek V4 Pro)'};
+    const labels={auto:'الوضع التلقائي',gpt:'دردشة نصية',code:'برمجة',fastcode:'برمجة_سريع (DeepSeek V4 Pro)'};
     showToast(`تم التحويل إلى ${labels[state.selectedModel]}`);
   });
 });
