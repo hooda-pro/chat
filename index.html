@@ -952,6 +952,231 @@ html:not(.dark) .icon-moon { display: none; }
   margin-top: 0.55rem;
 }
 
+/* ============ Composer Tools Bar (Deep Think etc.) ============ */
+.composer-tools {
+  display: none; /* hidden by default, shown only in code mode via JS */
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4rem 0.25rem 0.1rem;
+}
+.composer-tools.visible { display: flex; }
+
+.deep-think-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.35rem 0.75rem 0.35rem 0.6rem;
+  border: 1.5px solid var(--border);
+  border-radius: 999px;
+  background: none;
+  color: var(--muted-foreground);
+  font-family: inherit;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  position: relative;
+  overflow: hidden;
+}
+.deep-think-btn:hover {
+  border-color: #a855f7;
+  color: #a855f7;
+  background: color-mix(in srgb, #a855f7 8%, transparent);
+}
+.deep-think-btn.active {
+  border-color: #a855f7;
+  color: #a855f7;
+  background: color-mix(in srgb, #a855f7 12%, transparent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, #a855f7 15%, transparent);
+}
+.deep-think-btn.active .deep-think-icon {
+  filter: drop-shadow(0 0 4px #a855f7);
+  animation: thinkPulse 2s ease-in-out infinite;
+}
+@keyframes thinkPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+.deep-think-badge {
+  display: none;
+  font-size: 0.62rem;
+  background: #a855f7;
+  color: #fff;
+  border-radius: 999px;
+  padding: 0.1rem 0.45rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+.deep-think-btn.active .deep-think-badge { display: inline; }
+
+/* ============ Deep Think Waiting Experience ============ */
+
+/* --- Phase indicator (بيفكر / بيكتب / قارب يخلص) --- */
+.dt-status-bar {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  padding: 0.85rem 1rem;
+  background: color-mix(in srgb, #a855f7 6%, var(--card));
+  border: 1px solid color-mix(in srgb, #a855f7 25%, var(--border));
+  border-radius: 0.95rem;
+  margin-bottom: 0.5rem;
+  animation: fadeUp 0.3s ease;
+}
+
+/* Phase row */
+.dt-phases {
+  display: flex;
+  align-items: center;
+  gap: 0;
+}
+.dt-phase-step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+  flex: 1;
+  position: relative;
+}
+.dt-phase-step:not(:last-child)::after {
+  content: '';
+  position: absolute;
+  top: 10px;
+  inset-inline-end: -50%;
+  width: 100%;
+  height: 2px;
+  background: var(--border);
+  z-index: 0;
+}
+.dt-phase-step.done:not(:last-child)::after {
+  background: linear-gradient(90deg, #a855f7, #818cf8);
+}
+.dt-phase-dot {
+  width: 20px; height: 20px;
+  border-radius: 50%;
+  background: var(--muted);
+  border: 2px solid var(--border);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 1;
+  transition: all 0.3s ease;
+  font-size: 0.6rem;
+}
+.dt-phase-step.done .dt-phase-dot {
+  background: #a855f7;
+  border-color: #a855f7;
+  color: #fff;
+}
+.dt-phase-step.active .dt-phase-dot {
+  background: color-mix(in srgb, #a855f7 20%, var(--card));
+  border-color: #a855f7;
+  animation: phasePulse 1.2s ease-in-out infinite;
+}
+@keyframes phasePulse {
+  0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, #a855f7 40%, transparent); }
+  50% { box-shadow: 0 0 0 5px color-mix(in srgb, #a855f7 0%, transparent); }
+}
+.dt-phase-label {
+  font-size: 0.6rem;
+  color: var(--muted-foreground);
+  text-align: center;
+  white-space: nowrap;
+}
+.dt-phase-step.active .dt-phase-label,
+.dt-phase-step.done .dt-phase-label { color: #a855f7; font-weight: 600; }
+
+/* Progress bar */
+.dt-progress-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+.dt-progress-track {
+  width: 100%;
+  height: 4px;
+  background: var(--border);
+  border-radius: 999px;
+  overflow: hidden;
+}
+.dt-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #a855f7, #818cf8, #2dd4bf);
+  background-size: 200% 100%;
+  border-radius: 999px;
+  transition: width 1.2s cubic-bezier(0.4, 0, 0.2, 1);
+  animation: shimmer 2s linear infinite;
+}
+@keyframes shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+.dt-progress-meta {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.67rem;
+  color: var(--muted-foreground);
+}
+.dt-elapsed { font-variant-numeric: tabular-nums; }
+
+/* Rotating fact */
+.dt-fact {
+  font-size: 0.78rem;
+  color: var(--muted-foreground);
+  font-style: italic;
+  min-height: 1.4em;
+  transition: opacity 0.4s ease, transform 0.4s ease;
+  padding: 0 0.1rem;
+}
+.dt-fact.fade-out { opacity: 0; transform: translateY(-4px); }
+.dt-fact.fade-in  { opacity: 1; transform: translateY(0); }
+
+/* ============ Thinking Block (DeepSeek reasoning_content) ============ */
+.thinking-block {
+  margin-bottom: 0.85rem;
+  border: 1px solid color-mix(in srgb, #a855f7 30%, var(--border));
+  border-radius: 0.85rem;
+  overflow: hidden;
+  background: color-mix(in srgb, #a855f7 5%, var(--card));
+}
+.thinking-summary {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.6rem 0.9rem;
+  cursor: pointer;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #a855f7;
+  list-style: none;
+  user-select: none;
+}
+.thinking-summary::-webkit-details-marker { display: none; }
+.thinking-icon {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+.thinking-chevron {
+  display: flex;
+  align-items: center;
+  margin-inline-start: auto;
+  transition: transform 0.2s ease;
+}
+details[open] .thinking-chevron { transform: rotate(180deg); }
+.thinking-content {
+  padding: 0.75rem 1rem;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.76rem;
+  line-height: 1.65;
+  color: var(--muted-foreground);
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 320px;
+  overflow-y: auto;
+  border-top: 1px solid color-mix(in srgb, #a855f7 20%, var(--border));
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, #a855f7 40%, transparent) transparent;
+}
+
 /* Attachments preview */
 .attachments {
   display: flex;
@@ -1173,11 +1398,81 @@ html[dir="ltr"] .toast-container { transform: translateX(-50%); }
   .new-chat-btn { padding: 0.8rem 1rem; }
   .footer-btn { padding: 0.7rem 0.75rem; }
   .msg-actions { opacity: 1; }
+
+  /* ── Deep Think button ── */
+  .composer-tools {
+    padding: 0.35rem 0.1rem 0.05rem;
+    gap: 0.35rem;
+  }
+  .deep-think-btn {
+    font-size: 0.72rem;
+    padding: 0.3rem 0.65rem 0.3rem 0.55rem;
+    gap: 0.35rem;
+  }
+  .deep-think-badge {
+    font-size: 0.58rem;
+    padding: 0.08rem 0.38rem;
+  }
+
+  /* ── Waiting experience ── */
+  .dt-status-bar {
+    padding: 0.7rem 0.75rem;
+    gap: 0.5rem;
+    border-radius: 0.8rem;
+  }
+  .dt-phase-dot {
+    width: 18px;
+    height: 18px;
+    font-size: 0.55rem;
+  }
+  .dt-phase-label { font-size: 0.56rem; }
+  .dt-fact { font-size: 0.73rem; }
+  .dt-progress-meta { font-size: 0.63rem; }
+
+  /* ── Thinking block ── */
+  .thinking-block { border-radius: 0.75rem; }
+  .thinking-summary { padding: 0.5rem 0.75rem; font-size: 0.75rem; }
+  .thinking-content {
+    padding: 0.6rem 0.75rem;
+    font-size: 0.72rem;
+    max-height: 220px;
+  }
 }
 
 @media (max-width: 420px) {
   .suggestions { gap: 0.55rem; }
   .welcome { padding: 2.2rem 0.5rem 1.5rem; }
+
+  /* ── Deep Think button — tiny screens ── */
+  .deep-think-btn {
+    font-size: 0.68rem;
+    padding: 0.28rem 0.55rem 0.28rem 0.48rem;
+  }
+  .deep-think-label { display: inline; } /* keep label visible */
+
+  /* ── Waiting experience — tiny screens ── */
+  .dt-status-bar {
+    padding: 0.6rem 0.6rem;
+    gap: 0.4rem;
+  }
+  .dt-phases { gap: 0; }
+  .dt-phase-dot {
+    width: 16px;
+    height: 16px;
+    font-size: 0.5rem;
+  }
+  .dt-phase-label { font-size: 0.52rem; }
+  .dt-fact { font-size: 0.68rem; }
+  .dt-progress-track { height: 3px; }
+  .dt-progress-meta { font-size: 0.6rem; }
+
+  /* ── Thinking block — tiny screens ── */
+  .thinking-summary { font-size: 0.7rem; padding: 0.45rem 0.65rem; }
+  .thinking-content {
+    font-size: 0.68rem;
+    padding: 0.5rem 0.65rem;
+    max-height: 180px;
+  }
 }
 
 /* Reduced motion */
@@ -1337,6 +1632,16 @@ html[dir="ltr"] .toast-container { transform: translateX(-50%); }
               <svg class="icon-stop" width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><rect x="5" y="5" width="14" height="14" rx="2"/></svg>
             </button>
           </div>
+          <!-- Deep Think Toggle — only visible in code mode -->
+          <div class="composer-tools" id="composer-tools">
+            <button class="deep-think-btn" id="deep-think-btn" type="button" aria-pressed="false" title="تفعيل وضع التفكير العميق">
+              <svg class="deep-think-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                <path d="M9.663 17h4.673M12 3v1M6.343 6.343l-.707-.707M3 12H2M4.929 19.071l-.707.707M21 12h-1M18.364 5.636l-.707.707M18 12a6 6 0 1 1-12 0 6 6 0 0 1 12 0z"/>
+              </svg>
+              <span class="deep-think-label">Deep Think</span>
+              <span class="deep-think-badge" id="deep-think-badge">مُفعَّل</span>
+            </button>
+          </div>
           <input type="file" id="file-input" multiple hidden
             accept=".pdf,.doc,.docx,.xls,.xlsx,.csv,.txt,.json,.xml,.html,.css,.js,.ts,.jsx,.tsx,.java,.c,.cpp,.h,.hpp,.cs,.py,.php,.go,.rs,.kt,.swift,.zip,.rar,.md,.yml,.yaml,.sql,.sh,image/*" />
         </div>
@@ -1428,17 +1733,88 @@ window.FINAL_AI_CONFIG = {
     'إذا سُئلت عن مطوّر أو صانع Final AI، أجب أن المطوّر هو محمود أحمد سعيد، تاريخ الميلاد 27/1/2010.'
   ].join('\n'),
 
-  // System prompt for "برمجة" (code) mode — same identity rules, plus the
-  // coding-specific formatting instructions used when generating projects.
+  // System prompt for "برمجة" (code) mode — fully unlocked DeepSeek capabilities
   SYSTEM_PROMPT_CODE: [
-    'أنت "Final AI"، المساعد الذكي لهذا الموقع.',
+    'أنت "Final AI"، المساعد الذكي لهذا الموقع، مبني على نموذج برمجي متقدم للغاية.',
     'قدّم نفسك دائمًا باسم Final AI دون الخوض في تفاصيل البنية الخلفية.',
     'أجب بلغة المستخدم (العربية أو الإنجليزية أو غيرها).',
     'استخدم Markdown لتنسيق الإجابات، و LaTeX بين $ للمعادلات الرياضية.',
-    'عند كتابة كود برمجي كامل (ملف أو مشروع)، غلّف كل ملف في كتلة كود مع تحديد اللغة، وابدأ الكتلة بسطر تعليق يحتوي اسم الملف بصيغة: FILE: filename.ext',
-    'عند تعديل مشروع مرفوع، عدّل الجزء المطلوب فقط واشرح ما الذي تغيّر بالضبط، ولا تُعِد كتابة الملفات غير المتأثرة.',
+
+    // === FULL CODE CAPABILITIES ===
+    'أنت خبير برمجي شامل على أعلى مستوى. قدراتك الكاملة تشمل:',
+    '- بناء تطبيقات ويب كاملة (Frontend + Backend + Database + DevOps)',
+    '- تصميم وتنفيذ أنظمة معقدة من الصفر: APIs، Microservices، Distributed Systems',
+    '- تحليل الكود المرفوع وتشخيص المشاكل وإصلاح الأخطاء بدقة جراحية',
+    '- كتابة كود إنتاجي (production-grade) مع error handling كامل، logging، security، performance optimization',
+    '- إتقان جميع لغات البرمجة: Python، JavaScript/TypeScript، Rust، Go، C/C++، Java، Swift، Kotlin وغيرها',
+    '- خبرة عميقة في: React، Next.js، Vue، Angular، Node.js، FastAPI، Django، Spring Boot، Gin، Actix',
+    '- إتقان قواعد البيانات: PostgreSQL، MongoDB، Redis، Elasticsearch، Cassandra وغيرها',
+    '- خبرة DevOps: Docker، Kubernetes، CI/CD، Terraform، AWS، GCP، Azure',
+    '- تطبيق أفضل ممارسات الأمان: OWASP، JWT، OAuth2، rate limiting، input validation',
+    '- تطبيق design patterns: SOLID، DRY، KISS، microservices، event-driven، CQRS',
+    '- تحسين الأداء: profiling، caching strategies، database indexing، async patterns',
+    '- كتابة tests شاملة: unit، integration، e2e، TDD',
+    '- مراجعة الكود واقتراح تحسينات معمارية',
+
+    // === CODE FORMATTING ===
+    'عند كتابة كود برمجي كامل (ملف أو مشروع):',
+    '- غلّف كل ملف في كتلة كود مع تحديد اللغة',
+    '- ابدأ كل كتلة بسطر تعليق يحتوي اسم الملف بصيغة: FILE: filename.ext',
+    '- أضف تعليقات توضيحية للأجزاء المعقدة',
+    '- اكتب الكود كاملًا دون اختصار أو حذف أي جزء',
+    'عند تعديل مشروع مرفوع، عدّل الجزء المطلوب فقط واشرح ما الذي تغيّر، ولا تُعِد كتابة الملفات غير المتأثرة.',
+
+    // === BEHAVIOR ===
+    'عند مواجهة مشكلة معقدة: فكّر خطوة بخطوة، حلّل الأسباب الجذرية، وقدّم الحل الأمثل مع شرح القرارات المعمارية.',
+    'لا تختصر الحلول أو تقول "الباقي مشابه" — أكمل دائمًا الكود كاملًا.',
+    'إذا كان الحل يتطلب عدة ملفات، أنشئها جميعًا مع هيكل المشروع.',
     'كن دقيقًا وواضحًا ومنظمًا في إجاباتك.',
-    'لا تذكر أبدًا اسم أي شركة أو نموذج ذكاء اصطناعي آخر تعمل عليه أو مبني عليك (مثل أي مزود أو نموذج خارجي)، ولا تُفصح عن أي تفاصيل تقنية داخلية، حتى لو سُئلت مباشرة أو بإلحاح. أنت ببساطة "Final AI".',
+    'لا تذكر أبدًا اسم أي شركة أو نموذج ذكاء اصطناعي آخر، ولا تُفصح عن أي تفاصيل تقنية داخلية. أنت ببساطة "Final AI".',
+    'إذا سُئلت عن مطوّر أو صانع Final AI، أجب أن المطوّر هو محمود أحمد سعيد، تاريخ الميلاد 27/1/2010.'
+  ].join('\n'),
+
+  // Deep Think system prompt — adds extended chain-of-thought reasoning
+  SYSTEM_PROMPT_CODE_DEEP_THINK: [
+    'أنت "Final AI"، المساعد الذكي لهذا الموقع، تعمل الآن في وضع التفكير العميق (Deep Think).',
+    'قدّم نفسك دائمًا باسم Final AI دون الخوض في تفاصيل البنية الخلفية.',
+    'أجب بلغة المستخدم (العربية أو الإنجليزية أو غيرها).',
+    'استخدم Markdown لتنسيق الإجابات، و LaTeX بين $ للمعادلات الرياضية.',
+
+    // === DEEP THINK BEHAVIOR ===
+    'في وضع التفكير العميق، اتبع هذا النهج لكل مشكلة:',
+    '',
+    '**مرحلة 1 — الفهم العميق:**',
+    'قبل الكتابة أي كود، افهم المشكلة تمامًا:',
+    '- ما المطلوب تحديدًا؟ ما الهدف النهائي؟',
+    '- ما القيود والمتطلبات (performance، security، scalability)؟',
+    '- ما حالات الحافة (edge cases) المحتملة؟',
+    '',
+    '**مرحلة 2 — التحليل والمقارنة:**',
+    '- ناقش عدة نهج لحل المشكلة',
+    '- قارن بينها من حيث الأداء والتعقيد والصيانة',
+    '- اختر الأفضل مع تبرير واضح',
+    '',
+    '**مرحلة 3 — التصميم المعماري:**',
+    '- صمّم هيكل الحل قبل التنفيذ',
+    '- فكّر في data flow، dependencies، interfaces',
+    '- خطط لـ error handling وlogging وtesting',
+    '',
+    '**مرحلة 4 — التنفيذ الكامل:**',
+    '- اكتب الكود كاملًا دون أي اختصار',
+    '- أضف تعليقات توضيحية للقرارات المعمارية المهمة',
+    '- تأكد من security، performance، maintainability',
+    '',
+    '**مرحلة 5 — المراجعة والتحقق:**',
+    '- راجع الكود بحثًا عن أخطاء منطقية أو ثغرات أمنية',
+    '- اقترح tests للتحقق من صحة الحل',
+    '- اذكر أي تحسينات مستقبلية ممكنة',
+
+    // === FULL CAPABILITIES (same as code mode) ===
+    'قدراتك الكاملة تشمل جميع لغات البرمجة والفريمووركات والأنظمة المعقدة.',
+    'عند كتابة كود برمجي كامل: غلّف كل ملف في كتلة كود مع تحديد اللغة، وابدأ بسطر: FILE: filename.ext',
+    'اكتب الكود كاملًا دائمًا — لا اختصار، لا "الباقي مشابه".',
+    'كن دقيقًا وواضحًا ومنظمًا في إجاباتك.',
+    'لا تذكر أبدًا اسم أي شركة أو نموذج ذكاء اصطناعي آخر. أنت ببساطة "Final AI".',
     'إذا سُئلت عن مطوّر أو صانع Final AI، أجب أن المطوّر هو محمود أحمد سعيد، تاريخ الميلاد 27/1/2010.'
   ].join('\n'),
 
@@ -1727,6 +2103,7 @@ window.getWorkerUrl = function () {
     abortController: null,
     searchQuery: '',
     mode: 'chat',        // 'chat' = دردشة نصية, 'code' = برمجة
+    deepThink: false,    // Deep Think mode — enables extended reasoning for DeepSeek
   };
 
   // Helpers: always read/write the chat list & active id for the CURRENT mode
@@ -1773,6 +2150,9 @@ window.getWorkerUrl = function () {
     confirmOk: $('confirm-ok'),
     confirmCancel: $('confirm-cancel'),
     toasts: $('toasts'),
+    composerTools: $('composer-tools'),
+    deepThinkBtn: $('deep-think-btn'),
+    deepThinkBadge: $('deep-think-badge'),
   };
 
   /* ================= Utilities ================= */
@@ -2194,6 +2574,29 @@ window.getWorkerUrl = function () {
     if (msg.role === 'user') {
       bubble.textContent = msg.content;
     } else {
+      // Render reasoning_content block if present (Deep Think mode history)
+      if (msg.reasoningContent) {
+        const thinkWrap = document.createElement('details');
+        thinkWrap.className = 'thinking-block';
+        const summary = document.createElement('summary');
+        summary.className = 'thinking-summary';
+        summary.innerHTML = `
+          <span class="thinking-icon">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+              <path d="M9.663 17h4.673M12 3v1M6.343 6.343l-.707-.707M3 12H2M4.929 19.071l-.707.707M21 12h-1M18.364 5.636l-.707.707M18 12a6 6 0 1 1-12 0 6 6 0 0 1 12 0z"/>
+            </svg>
+          </span>
+          <span>عملية التفكير العميق</span>
+          <span class="thinking-chevron">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m6 9 6 6 6-6"/></svg>
+          </span>`;
+        thinkWrap.appendChild(summary);
+        const thinkContent = document.createElement('div');
+        thinkContent.className = 'thinking-content';
+        thinkContent.textContent = msg.reasoningContent;
+        thinkWrap.appendChild(thinkContent);
+        bubble.appendChild(thinkWrap);
+      }
       bubble.appendChild(renderMarkdown(msg.content || ''));
       appendProjectDownloads(bubble, msg.content || '');
     }
@@ -2308,7 +2711,12 @@ window.getWorkerUrl = function () {
 
   /* ================= Networking / Streaming ================= */
   function buildApiMessages(chat) {
-    const sysPrompt = state.mode === 'code' ? CFG.SYSTEM_PROMPT_CODE : CFG.SYSTEM_PROMPT_CHAT;
+    let sysPrompt;
+    if (state.mode === 'code') {
+      sysPrompt = state.deepThink ? CFG.SYSTEM_PROMPT_CODE_DEEP_THINK : CFG.SYSTEM_PROMPT_CODE;
+    } else {
+      sysPrompt = CFG.SYSTEM_PROMPT_CHAT;
+    }
     const msgs = [{ role: 'system', content: sysPrompt }];
     const recent = chat.messages.slice(-CFG.MAX_CONTEXT_MESSAGES);
     for (const m of recent) {
@@ -2348,18 +2756,239 @@ window.getWorkerUrl = function () {
     setStreaming(true);
     let lastRender = 0;
 
+    /* =====================================================================
+       Deep Think Waiting Experience
+       — Active only when deepThink=true and we have no content yet.
+       Renders: smart phase indicator + progress bar + rotating facts.
+       Destroyed the moment the first real content token arrives.
+    ===================================================================== */
+    let dtWaitEl = null;
+    let dtTimerInterval = null;
+    let dtFactInterval = null;
+    let dtStartTime = Date.now();
+    let dtPhase = 0; // 0=thinking, 1=writing, 2=finishing
+    let dtProgress = 0;
+
+    const DT_PHASES = [
+      { label: 'يفكّر', icon: '🧠' },
+      { label: 'يكتب', icon: '✍️' },
+      { label: 'يراجع', icon: '✅' },
+    ];
+
+    const DT_FACTS_DEEP = [
+      'DeepSeek يحلل مشكلتك من كل الزوايا...',
+      'النموذج يقارن بين أكثر من نهج لحل المشكلة...',
+      'جارٍ التفكير في أفضل بنية للكود...',
+      'النموذج يراجع الحالات الحرجة (edge cases)...',
+      'جارٍ التخطيط لأمان الكود وأدائه...',
+      'النموذج يختار أفضل design pattern مناسب...',
+      'يتأكد النموذج من صحة المنطق البرمجي...',
+      'التفكير العميق يستغرق وقتًا أطول — لكن النتيجة تستحق!',
+      'جارٍ مراجعة الكود للأخطاء المحتملة...',
+      'النموذج يبني الحل خطوة بخطوة...',
+    ];
+    const DT_FACTS_NORMAL = [
+      'جارٍ معالجة طلبك...',
+      'Final AI يفكر في أفضل إجابة...',
+      'جارٍ صياغة الرد...',
+      'النموذج يحلل سؤالك...',
+      'لحظة من فضلك...',
+      'جارٍ إعداد الإجابة...',
+    ];
+    const DT_FACTS = state.deepThink && state.mode === 'code' ? DT_FACTS_DEEP : DT_FACTS_NORMAL;
+    let dtFactIdx = 0;
+
+    function buildDtWaitEl() {
+      const isDeepThinkMode = state.deepThink && state.mode === 'code';
+      const wrap = document.createElement('div');
+      wrap.className = 'dt-status-bar';
+
+      // Phase steps — only in Deep Think mode
+      if (isDeepThinkMode) {
+        const phasesRow = document.createElement('div');
+        phasesRow.className = 'dt-phases';
+        DT_PHASES.forEach((p, i) => {
+          const step = document.createElement('div');
+          step.className = 'dt-phase-step' + (i < dtPhase ? ' done' : i === dtPhase ? ' active' : '');
+          step.dataset.idx = i;
+          const dot = document.createElement('div');
+          dot.className = 'dt-phase-dot';
+          dot.textContent = i < dtPhase ? '✓' : p.icon;
+          const lbl = document.createElement('div');
+          lbl.className = 'dt-phase-label';
+          lbl.textContent = p.label;
+          step.appendChild(dot);
+          step.appendChild(lbl);
+          phasesRow.appendChild(step);
+        });
+        wrap.appendChild(phasesRow);
+      }
+
+      // Progress track
+      const progressWrap = document.createElement('div');
+      progressWrap.className = 'dt-progress-wrap';
+      const track = document.createElement('div');
+      track.className = 'dt-progress-track';
+      const fill = document.createElement('div');
+      fill.className = 'dt-progress-fill';
+      fill.id = 'dt-progress-fill';
+      fill.style.width = dtProgress + '%';
+      track.appendChild(fill);
+      progressWrap.appendChild(track);
+
+      const meta = document.createElement('div');
+      meta.className = 'dt-progress-meta';
+      const elapsedSpan = document.createElement('span');
+      elapsedSpan.className = 'dt-elapsed';
+      elapsedSpan.id = 'dt-elapsed';
+      elapsedSpan.textContent = '0s';
+      const pctSpan = document.createElement('span');
+      pctSpan.id = 'dt-pct';
+      pctSpan.textContent = Math.round(dtProgress) + '%';
+      meta.appendChild(elapsedSpan);
+      meta.appendChild(pctSpan);
+      progressWrap.appendChild(meta);
+      wrap.appendChild(progressWrap);
+
+      // Rotating fact
+      const fact = document.createElement('div');
+      fact.className = 'dt-fact fade-in';
+      fact.id = 'dt-fact';
+      fact.textContent = DT_FACTS[dtFactIdx];
+      wrap.appendChild(fact);
+
+      return wrap;
+    }
+
+    function updateDtPhase(phase) {
+      if (!dtWaitEl) return;
+      dtPhase = phase;
+      dtWaitEl.querySelectorAll('.dt-phase-step').forEach((step, i) => {
+        step.className = 'dt-phase-step' + (i < phase ? ' done' : i === phase ? ' active' : '');
+        const dot = step.querySelector('.dt-phase-dot');
+        dot.textContent = i < phase ? '✓' : DT_PHASES[i].icon;
+      });
+    }
+
+    function tickDtProgress() {
+      if (!dtWaitEl) return;
+      const isDeepThinkMode = state.deepThink && state.mode === 'code';
+      const elapsed = Math.floor((Date.now() - dtStartTime) / 1000);
+      const elapsedEl = document.getElementById('dt-elapsed');
+      const pctEl = document.getElementById('dt-pct');
+      const fillEl = document.getElementById('dt-progress-fill');
+
+      if (elapsedEl) elapsedEl.textContent = elapsed + 's';
+
+      // Phase advances only in Deep Think mode
+      if (isDeepThinkMode) {
+        let targetPhase = 0;
+        if (elapsed >= 35) targetPhase = 2;
+        else if (elapsed >= 15) targetPhase = 1;
+        if (targetPhase !== dtPhase) updateDtPhase(targetPhase);
+      }
+
+      // Progress ceiling: Deep Think is slower, normal is faster
+      let ceiling;
+      if (isDeepThinkMode) {
+        ceiling = elapsed < 10 ? 20 : elapsed < 20 ? 45 : elapsed < 35 ? 65 : elapsed < 55 ? 80 : 88;
+      } else {
+        ceiling = elapsed < 5 ? 35 : elapsed < 12 ? 60 : elapsed < 20 ? 78 : 88;
+      }
+      dtProgress = dtProgress + (ceiling - dtProgress) * 0.1;
+      if (fillEl) fillEl.style.width = dtProgress + '%';
+      if (pctEl) pctEl.textContent = Math.round(dtProgress) + '%';
+    }
+
+    function rotateFact() {
+      const factEl = document.getElementById('dt-fact');
+      if (!factEl) return;
+      factEl.classList.remove('fade-in');
+      factEl.classList.add('fade-out');
+      setTimeout(() => {
+        dtFactIdx = (dtFactIdx + 1) % DT_FACTS.length;
+        factEl.textContent = DT_FACTS[dtFactIdx];
+        factEl.classList.remove('fade-out');
+        factEl.classList.add('fade-in');
+      }, 420);
+    }
+
+    function startDtWaiting() {
+      if (isContinuation) return;
+      dtWaitEl = buildDtWaitEl();
+      bubble.innerHTML = '';
+      bubble.appendChild(dtWaitEl);
+      dtTimerInterval = setInterval(tickDtProgress, 900);
+      dtFactInterval = setInterval(rotateFact, 3800);
+    }
+
+    function destroyDtWaiting() {
+      if (dtTimerInterval) { clearInterval(dtTimerInterval); dtTimerInterval = null; }
+      if (dtFactInterval)  { clearInterval(dtFactInterval);  dtFactInterval  = null; }
+      dtWaitEl = null;
+    }
+
+    if (!isContinuation) startDtWaiting();
+
     const renderPartial = (final) => {
       const now = performance.now();
       if (!final && now - lastRender < 90) return; // throttle re-renders
       lastRender = now;
+
+      // Kill the waiting experience the moment we get real output
+      const hasOutput = (assistantMsg.reasoningContent || content);
+      if (hasOutput && dtWaitEl) destroyDtWaiting();
+
       bubble.innerHTML = '';
-      const md = renderMarkdown(content);
-      if (!final) {
-        const cursor = document.createElement('span');
-        cursor.className = 'cursor-blink';
-        (md.lastElementChild || md).appendChild(cursor);
+
+      // --- Reasoning block (Deep Think) ---
+      const reasoning = assistantMsg.reasoningContent || '';
+      if (reasoning) {
+        const thinkWrap = document.createElement('details');
+        thinkWrap.className = 'thinking-block';
+        // Auto-open while streaming, collapse when done
+        if (!final) thinkWrap.open = true;
+
+        const summary = document.createElement('summary');
+        summary.className = 'thinking-summary';
+        summary.innerHTML = `
+          <span class="thinking-icon">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+              <path d="M9.663 17h4.673M12 3v1M6.343 6.343l-.707-.707M3 12H2M4.929 19.071l-.707.707M21 12h-1M18.364 5.636l-.707.707M18 12a6 6 0 1 1-12 0 6 6 0 0 1 12 0z"/>
+            </svg>
+          </span>
+          <span>${final ? 'عملية التفكير العميق' : 'جارٍ التفكير...'}</span>
+          <span class="thinking-chevron">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m6 9 6 6 6-6"/></svg>
+          </span>`;
+        thinkWrap.appendChild(summary);
+
+        const thinkContent = document.createElement('div');
+        thinkContent.className = 'thinking-content';
+        thinkContent.textContent = reasoning;
+        thinkWrap.appendChild(thinkContent);
+
+        bubble.appendChild(thinkWrap);
       }
-      bubble.appendChild(md);
+
+      // --- Main answer ---
+      if (content || !reasoning) {
+        const md = renderMarkdown(content);
+        if (!final) {
+          const cursor = document.createElement('span');
+          cursor.className = 'cursor-blink';
+          (md.lastElementChild || md).appendChild(cursor);
+        }
+        bubble.appendChild(md);
+      } else if (!final && reasoning) {
+        // Still in thinking phase, show pulsing indicator
+        const waiting = document.createElement('div');
+        waiting.className = 'typing';
+        waiting.setAttribute('aria-label', 'جارٍ صياغة الرد');
+        waiting.innerHTML = '<span></span><span></span><span></span>';
+        bubble.appendChild(waiting);
+      }
+
       if (final) appendProjectDownloads(bubble, content);
       scrollToBottom();
     };
@@ -2373,16 +3002,23 @@ window.getWorkerUrl = function () {
         const apiMessages = buildApiMessages(chat);
         if (isContinuation) apiMessages.push({ role: 'user', content: CFG.CONTINUE_PROMPT });
 
+        // In Deep Think mode: lower temperature for more precise reasoning,
+        // higher token budget for extended chain-of-thought.
+        // Also pass deep_think flag so the Worker can enable DeepSeek thinking mode.
+        const effectiveTemp = (state.deepThink && state.mode === 'code') ? 0.3 : CFG.TEMPERATURE;
+        const effectiveMaxTokens = (state.deepThink && state.mode === 'code') ? Math.min(maxTokens * 2, 16384) : maxTokens;
+
         const res = await fetch(getWorkerUrl() + '/api/chat', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             messages: apiMessages,
             stream: true,
-            temperature: CFG.TEMPERATURE,
+            temperature: effectiveTemp,
             top_p: CFG.TOP_P,
-            max_tokens: maxTokens,
+            max_tokens: effectiveMaxTokens,
             mode: state.mode, // 'chat' or 'code'
+            deep_think: state.deepThink && state.mode === 'code', // tells Worker to enable DeepSeek thinking
           }),
           signal: state.abortController.signal,
         });
@@ -2413,12 +3049,17 @@ window.getWorkerUrl = function () {
             try {
               const json = JSON.parse(data);
               const choice = json.choices?.[0];
-              const delta = choice?.delta?.content
-                ?? choice?.message?.content
-                ?? choice?.delta?.reasoning_content
-                ?? '';
-              if (delta) {
-                content += delta;
+              // reasoning_content = DeepSeek's internal chain-of-thought (Deep Think mode)
+              const reasoningDelta = choice?.delta?.reasoning_content ?? '';
+              const contentDelta = choice?.delta?.content ?? choice?.message?.content ?? '';
+
+              if (reasoningDelta) {
+                // Accumulate reasoning separately — rendered as a collapsible block
+                assistantMsg.reasoningContent = (assistantMsg.reasoningContent || '') + reasoningDelta;
+                renderPartial(false);
+              }
+              if (contentDelta) {
+                content += contentDelta;
                 assistantMsg.content = content;
                 renderPartial(false);
               }
@@ -2444,6 +3085,7 @@ window.getWorkerUrl = function () {
         break; // success
       } catch (err) {
         if (err.name === 'AbortError') {
+          destroyDtWaiting();
           assistantMsg.content = content;
           if (!content) {
             chat.messages.pop();
@@ -2477,6 +3119,7 @@ window.getWorkerUrl = function () {
       }
     }
 
+    destroyDtWaiting();
     setStreaming(false);
     state.abortController = null;
     chat.updatedAt = Date.now();
@@ -2580,6 +3223,7 @@ window.getWorkerUrl = function () {
     if (state.streaming) stopStreaming();
     state.mode = mode;
     applyModeUI();
+    updateDeepThinkUI(); // show/hide Deep Think button based on new mode
     try { localStorage.setItem(MODE_STORE_KEY, mode); } catch (_) {}
     state.searchQuery = '';
     if (els.chatSearch) els.chatSearch.value = '';
@@ -2608,6 +3252,33 @@ window.getWorkerUrl = function () {
   document.addEventListener('click', (e) => {
     if (!els.modelSelectMenu.hidden && !els.modelSelect.contains(e.target)) toggleModelMenu(false);
   });
+
+  /* ================= Deep Think Toggle ================= */
+  function updateDeepThinkUI() {
+    const isCode = state.mode === 'code';
+    // Show/hide the tools bar based on mode
+    els.composerTools.classList.toggle('visible', isCode);
+    // Update button active state
+    els.deepThinkBtn.classList.toggle('active', state.deepThink);
+    els.deepThinkBtn.setAttribute('aria-pressed', state.deepThink ? 'true' : 'false');
+  }
+
+  els.deepThinkBtn.addEventListener('click', () => {
+    if (state.mode !== 'code') return; // safety guard
+    state.deepThink = !state.deepThink;
+    updateDeepThinkUI();
+    // Persist preference
+    try { localStorage.setItem('finalai:deepThink', state.deepThink ? '1' : '0'); } catch (_) {}
+    toast(state.deepThink ? '🔮 Deep Think مُفعَّل — سيفكر النموذج بعمق قبل الإجابة' : 'Deep Think مُعطَّل');
+  });
+
+  // Load Deep Think preference
+  function loadDeepThinkPref() {
+    try {
+      const stored = localStorage.getItem('finalai:deepThink');
+      state.deepThink = stored === '1';
+    } catch (_) {}
+  }
 
   /* ================= Composer ================= */
   function autosize() {
@@ -2817,6 +3488,8 @@ window.getWorkerUrl = function () {
   /* ================= Init ================= */
   initTheme();
   loadMode();
+  loadDeepThinkPref();
+  updateDeepThinkUI();
   loadChats();
   for (const m of ['chat', 'code']) {
     const list = state.chatsByMode[m];
