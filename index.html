@@ -145,6 +145,15 @@ code, pre, kbd { font-family: 'JetBrains Mono', ui-monospace, monospace; }
   border-radius: 4px;
 }
 
+/* On touch devices (phones/tablets), tapping shouldn't trigger the
+   keyboard-style focus outline — it reads as a stray blue/purple ring.
+   Keep it only for real keyboard navigation (mouse/fine-pointer devices). */
+@media (hover: none) and (pointer: coarse) {
+  :focus-visible {
+    outline: none;
+  }
+}
+
 /* ============ Layout ============ */
 .app {
   position: relative;
