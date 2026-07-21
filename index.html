@@ -307,8 +307,7 @@ html[dir="ltr"] .sidebar { transform: translateX(-100%); }
 }
 .footer-btn:hover { background: var(--muted); }
 
-html.dark .icon-sun { display: none; }
-html:not(.dark) .icon-moon { display: none; }
+/* icon-sun/moon in footer were removed; now managed in settings toggle knob */
 
 /* ============ Sidebar overlay (mobile) ============ */
 .sidebar-overlay {
@@ -1513,9 +1512,236 @@ html[dir="ltr"] .toast-container { transform: translateX(-50%); }
     transition-duration: 0.01ms !important;
   }
 }
+
+/* ============================================================
+   NEW: Settings Modal — Tabs, Toggles, Appearance Controls
+   ============================================================ */
+
+/* Wide modal for settings */
+.modal-wide { max-width: 520px; }
+
+/* ── Settings Tabs ── */
+.settings-tabs {
+  display: flex;
+  gap: 0.15rem;
+  padding: 0 1.1rem;
+  border-bottom: 1px solid var(--border);
+}
+.settings-tab {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.65rem 0.9rem;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--muted-foreground);
+  font-family: inherit;
+  font-size: 0.83rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+  margin-bottom: -1px;
+}
+.settings-tab:hover { color: var(--foreground); }
+.settings-tab.active {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+  font-weight: 600;
+}
+
+/* ── Settings Panels ── */
+.settings-panel { display: none; flex-direction: column; gap: 0.25rem; }
+.settings-panel.active { display: flex; }
+
+/* ── Settings Row ── */
+.settings-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.85rem 0;
+  border-bottom: 1px solid var(--border);
+}
+.settings-row:last-child { border-bottom: none; }
+.settings-row-col {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.65rem;
+}
+.settings-row-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+.settings-row-label {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--foreground);
+}
+.settings-row-desc {
+  font-size: 0.75rem;
+  color: var(--muted-foreground);
+  padding-inline-start: 1.4rem;
+}
+
+/* Desktop-only badge */
+.badge-desktop {
+  font-size: 0.62rem;
+  background: color-mix(in srgb, var(--accent) 15%, transparent);
+  color: var(--accent);
+  border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
+  border-radius: 999px;
+  padding: 0.1rem 0.5rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  flex-shrink: 0;
+}
+
+/* ── Toggle Button ── */
+.toggle-btn {
+  position: relative;
+  width: 48px;
+  height: 26px;
+  background: var(--muted);
+  border: 1.5px solid var(--border);
+  border-radius: 999px;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.2s ease, border-color 0.2s ease;
+  padding: 0;
+}
+.toggle-btn[aria-checked="true"] {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+.toggle-knob {
+  position: absolute;
+  top: 2px;
+  inset-inline-start: 2px;
+  width: 18px;
+  height: 18px;
+  background: #fff;
+  border-radius: 50%;
+  transition: inset-inline-start 0.2s cubic-bezier(0.4,0,0.2,1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+}
+.toggle-btn[aria-checked="true"] .toggle-knob {
+  inset-inline-start: calc(100% - 20px);
+}
+.toggle-knob .icon-sun { display: none; }
+.toggle-knob .icon-moon { display: block; color: #6366f1; }
+#theme-toggle[aria-checked="false"] .toggle-knob .icon-sun { display: block; color: #f59e0b; }
+#theme-toggle[aria-checked="false"] .toggle-knob .icon-moon { display: none; }
+
+/* ── Font size options ── */
+.font-size-options {
+  display: flex;
+  gap: 0.35rem;
+}
+.font-size-btn {
+  width: 38px;
+  height: 38px;
+  border: 1.5px solid var(--border);
+  border-radius: 0.55rem;
+  background: var(--muted);
+  color: var(--foreground);
+  font-family: inherit;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.font-size-btn[data-size="small"] { font-size: 0.75rem; }
+.font-size-btn[data-size="medium"] { font-size: 0.9rem; }
+.font-size-btn[data-size="large"] { font-size: 1.05rem; }
+.font-size-btn:hover { border-color: var(--accent); color: var(--accent); }
+.font-size-btn.active { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, var(--muted)); color: var(--accent); }
+
+/* ── Accent color dots ── */
+.color-options {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+.color-dot {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 2.5px solid transparent;
+  cursor: pointer;
+  transition: transform 0.15s, box-shadow 0.15s, border-color 0.15s;
+  box-shadow: 0 0 0 2px transparent;
+}
+.color-dot:hover { transform: scale(1.15); }
+.color-dot.active {
+  box-shadow: 0 0 0 3px color-mix(in srgb, currentColor 40%, transparent);
+  border-color: white;
+  transform: scale(1.1);
+}
+
+/* Compact mode */
+body.compact .messages { gap: 0.75rem; }
+body.compact .msg-bubble { padding: 0.55rem 0.8rem; }
+body.compact .welcome { padding: 2rem 1rem 1rem; gap: 0.6rem; }
+
+/* Font sizes */
+body.font-small { font-size: 13px; }
+body.font-medium { font-size: 15px; }
+body.font-large { font-size: 17px; }
+
+/* Accent color variables per theme */
+body.accent-teal   { --accent:#0d9488; --accent-hover:#0f766e; --user-bubble:#0d9488; }
+body.accent-rose   { --accent:#e11d48; --accent-hover:#be123c; --user-bubble:#e11d48; }
+body.accent-amber  { --accent:#d97706; --accent-hover:#b45309; --user-bubble:#d97706; }
+body.accent-sky    { --accent:#0284c7; --accent-hover:#0369a1; --user-bubble:#0284c7; }
+html.dark body.accent-teal  { --accent:#2dd4bf; --accent-hover:#14b8a6; }
+html.dark body.accent-rose  { --accent:#fb7185; --accent-hover:#f43f5e; }
+html.dark body.accent-amber { --accent:#fbbf24; --accent-hover:#f59e0b; }
+html.dark body.accent-sky   { --accent:#38bdf8; --accent-hover:#0ea5e9; }
+
+/* ============================================================
+   NEW: 3D Canvas Background (Desktop only)
+   ============================================================ */
+.bg3d-canvas {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0;
+  transition: opacity 0.8s ease;
+}
+.bg3d-canvas.active { opacity: 1; }
+
+/* When 3D is active, the app sits above canvas with semi-transparent bg */
+body.bg3d-on .app { position: relative; z-index: 1; }
+body.bg3d-on { background: transparent; }
+body.bg3d-on .sidebar { background: color-mix(in srgb, var(--sidebar-bg) 88%, transparent); backdrop-filter: blur(20px); }
+body.bg3d-on .topbar { background: color-mix(in srgb, var(--background) 80%, transparent); backdrop-filter: blur(16px); }
+body.bg3d-on .composer-wrap .composer { background: color-mix(in srgb, var(--card) 85%, transparent); backdrop-filter: blur(16px); }
+body.bg3d-on .modal-backdrop { backdrop-filter: blur(8px); }
+
+/* Desktop-only row: hide the desktop badge label on mobile to avoid confusion */
+@media (max-width: 860px) {
+  .desktop-only-row { display: none; }
+}
+
+/* ── Settings-specific overrides to modal-body padding ── */
+.modal-wide .modal-body { gap: 0; }
+
   </style>
 </head>
 <body>
+  <!-- 3D Background Canvas (desktop only, toggled via settings) -->
+  <canvas id="bg3d-canvas" class="bg3d-canvas" aria-hidden="true"></canvas>
+
   <div class="app" id="app">
 
     <!-- ===== Sidebar ===== -->
@@ -1548,11 +1774,6 @@ html[dir="ltr"] .toast-container { transform: translateX(-50%); }
       <nav class="chat-list" id="chat-list" aria-label="قائمة المحادثات"></nav>
 
       <div class="sidebar-footer">
-        <button class="footer-btn" id="theme-toggle" aria-label="تبديل المظهر">
-          <svg class="icon-moon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
-          <svg class="icon-sun" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
-          <span class="theme-label">المظهر</span>
-        </button>
         <button class="footer-btn" id="settings-btn" aria-label="الإعدادات">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
           <span>الإعدادات</span>
@@ -1683,22 +1904,137 @@ html[dir="ltr"] .toast-container { transform: translateX(-50%); }
 
   <!-- ===== Settings modal ===== -->
   <div class="modal-backdrop" id="settings-modal" hidden>
-    <div class="modal glass" role="dialog" aria-modal="true" aria-labelledby="settings-title">
+    <div class="modal modal-wide glass" role="dialog" aria-modal="true" aria-labelledby="settings-title">
       <div class="modal-header">
         <h2 id="settings-title">الإعدادات</h2>
         <button class="icon-btn" id="settings-close" aria-label="إغلاق">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
         </button>
       </div>
+
+      <!-- Settings tabs -->
+      <div class="settings-tabs">
+        <button class="settings-tab active" data-tab="appearance">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+          المظهر
+        </button>
+        <button class="settings-tab" data-tab="connection">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 12.55a11 11 0 0 1 14.08 0M1.42 9a16 16 0 0 1 21.16 0M8.53 16.11a6 6 0 0 1 6.95 0M12 20h.01"/></svg>
+          الاتصال
+        </button>
+        <button class="settings-tab" data-tab="data">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
+          البيانات
+        </button>
+      </div>
+
       <div class="modal-body">
-        <label class="field">
-          <span class="field-label">رابط خادم Cloudflare Worker</span>
-          <input type="url" id="worker-url-input" dir="ltr" placeholder="https://final-ai.example.workers.dev" />
-          <span class="field-hint">يتم الاتصال بالنموذج عبر هذا الرابط فقط. مفتاح API محفوظ بأمان داخل Cloudflare ولا يظهر للمستخدم أبدًا.</span>
-        </label>
-        <div class="danger-zone">
-          <button class="danger-btn" id="clear-all-btn">حذف جميع المحادثات</button>
+
+        <!-- ── Appearance Tab ── -->
+        <div class="settings-panel active" id="tab-appearance">
+
+          <!-- Theme toggle -->
+          <div class="settings-row">
+            <div class="settings-row-info">
+              <span class="settings-row-label">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
+                الوضع الداكن
+              </span>
+              <span class="settings-row-desc">تفعيل الوضع الداكن أو الفاتح</span>
+            </div>
+            <button class="toggle-btn" id="theme-toggle" aria-label="تبديل المظهر" role="switch" aria-checked="true">
+              <span class="toggle-knob">
+                <svg class="icon-moon" width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
+                <svg class="icon-sun" width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="4"/></svg>
+              </span>
+            </button>
+          </div>
+
+          <!-- 3D Background (Desktop only) -->
+          <div class="settings-row desktop-only-row">
+            <div class="settings-row-info">
+              <span class="settings-row-label">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/><path d="M5 3v4M19 17v4M3 5h4M17 19h4"/></svg>
+                خلفية 3D متحركة
+                <span class="badge-desktop">كمبيوتر فقط</span>
+              </span>
+              <span class="settings-row-desc">تأثيرات ثلاثية الأبعاد تفاعلية في الخلفية</span>
+            </div>
+            <button class="toggle-btn" id="bg3d-toggle" role="switch" aria-checked="false">
+              <span class="toggle-knob"></span>
+            </button>
+          </div>
+
+          <!-- Compact mode -->
+          <div class="settings-row">
+            <div class="settings-row-info">
+              <span class="settings-row-label">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v3M21 16v3a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-3M4 12H2M22 12h-2M12 4V2M12 22v-2"/></svg>
+                الوضع المضغوط
+              </span>
+              <span class="settings-row-desc">تقليل المسافات بين الرسائل</span>
+            </div>
+            <button class="toggle-btn" id="compact-toggle" role="switch" aria-checked="false">
+              <span class="toggle-knob"></span>
+            </button>
+          </div>
+
+          <!-- Font size -->
+          <div class="settings-row settings-row-col">
+            <div class="settings-row-info">
+              <span class="settings-row-label">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="4 7 4 4 20 4 20 7"/><line x1="9" x2="15" y1="20" y2="20"/><line x1="12" x2="12" y1="4" y2="20"/></svg>
+                حجم الخط
+              </span>
+              <span class="settings-row-desc">اختر حجم النص المناسب</span>
+            </div>
+            <div class="font-size-options">
+              <button class="font-size-btn" data-size="small">ص</button>
+              <button class="font-size-btn active" data-size="medium">م</button>
+              <button class="font-size-btn" data-size="large">ك</button>
+            </div>
+          </div>
+
+          <!-- Accent color -->
+          <div class="settings-row settings-row-col">
+            <div class="settings-row-info">
+              <span class="settings-row-label">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="13.5" cy="6.5" r=".5" fill="currentColor"/><circle cx="17.5" cy="10.5" r=".5" fill="currentColor"/><circle cx="8.5" cy="7.5" r=".5" fill="currentColor"/><circle cx="6.5" cy="12.5" r=".5" fill="currentColor"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/></svg>
+                لون التمييز
+              </span>
+              <span class="settings-row-desc">لون الأزرار والعناصر الرئيسية</span>
+            </div>
+            <div class="color-options">
+              <button class="color-dot active" data-color="indigo" style="background:#4f46e5" title="بنفسجي" aria-label="بنفسجي"></button>
+              <button class="color-dot" data-color="teal" style="background:#0d9488" title="أخضر مائي" aria-label="أخضر مائي"></button>
+              <button class="color-dot" data-color="rose" style="background:#e11d48" title="وردي" aria-label="وردي"></button>
+              <button class="color-dot" data-color="amber" style="background:#d97706" title="ذهبي" aria-label="ذهبي"></button>
+              <button class="color-dot" data-color="sky" style="background:#0284c7" title="سماوي" aria-label="سماوي"></button>
+            </div>
+          </div>
+
         </div>
+
+        <!-- ── Connection Tab ── -->
+        <div class="settings-panel" id="tab-connection">
+          <label class="field">
+            <span class="field-label">رابط خادم Cloudflare Worker</span>
+            <input type="url" id="worker-url-input" dir="ltr" placeholder="https://final-ai.example.workers.dev" />
+            <span class="field-hint">يتم الاتصال بالنموذج عبر هذا الرابط فقط. مفتاح API محفوظ بأمان داخل Cloudflare ولا يظهر للمستخدم أبدًا.</span>
+          </label>
+        </div>
+
+        <!-- ── Data Tab ── -->
+        <div class="settings-panel" id="tab-data">
+          <div class="danger-zone" style="border-top:none;padding-top:0">
+            <p class="settings-row-desc" style="margin-bottom:0.75rem">هذا الإجراء لا يمكن التراجع عنه.</p>
+            <button class="danger-btn" id="clear-all-btn">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="3 6 5 6 21 6"/><path d="m19 6-.867 12.142A2 2 0 0 1 16.138 20H7.862a2 2 0 0 1-1.995-1.858L5 6M10 11v6M14 11v6M9 6V4h6v2"/></svg>
+              حذف جميع المحادثات
+            </button>
+          </div>
+        </div>
+
       </div>
       <div class="modal-footer">
         <button class="primary-btn" id="settings-save">حفظ</button>
@@ -2154,7 +2490,7 @@ window.getWorkerUrl = function () {
     newChatBtn: $('new-chat-btn'),
     chatSearch: $('chat-search'),
     chatList: $('chat-list'),
-    themeToggle: $('theme-toggle'),
+    themeToggle: $('theme-toggle'), // now lives inside settings modal
     settingsBtn: $('settings-btn'),
     topbarTitle: $('topbar-title'),
     modelSelect: $('model-select'),
@@ -3463,10 +3799,7 @@ window.getWorkerUrl = function () {
   });
 
   /* ================= Settings ================= */
-  els.settingsBtn.addEventListener('click', () => {
-    els.workerUrlInput.value = localStorage.getItem('finalai:workerUrl') || '';
-    els.settingsModal.hidden = false;
-  });
+  // Note: settingsBtn open + theme toggle are now handled in the enhanced settings script above.
   els.settingsClose.addEventListener('click', () => (els.settingsModal.hidden = true));
   els.settingsModal.addEventListener('click', (e) => {
     if (e.target === els.settingsModal) els.settingsModal.hidden = true;
@@ -3497,7 +3830,7 @@ window.getWorkerUrl = function () {
 
   /* ================= Misc wiring ================= */
   els.newChatBtn.addEventListener('click', createChat);
-  els.themeToggle.addEventListener('click', toggleTheme);
+  // themeToggle is now wired inside the enhanced settings panel script
 
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
@@ -3538,6 +3871,265 @@ window.getWorkerUrl = function () {
 })();
 
   </script>
+  <script>
+  /* ================= Enhanced Settings Panel =================
+     Handles: tab switching, theme toggle in settings, 3D background,
+     compact mode, font size, accent color picker. */
+  (function () {
+    'use strict';
+
+    /* ── Settings modal open ── */
+    // Override the existing settingsBtn listener by re-wiring after DOM ready
+    const settingsBtn = document.getElementById('settings-btn');
+    const settingsModal = document.getElementById('settings-modal');
+    const settingsClose = document.getElementById('settings-close');
+    const workerUrlInput = document.getElementById('worker-url-input');
+
+    // The original listener is registered later in the main script block,
+    // so we patch by wrapping with a one-time replace approach via a custom event.
+    // We use a flag to avoid double-opening:
+    settingsBtn.addEventListener('click', function(e) {
+      workerUrlInput.value = localStorage.getItem('finalai:workerUrl') || '';
+      syncSettingsUI();
+      settingsModal.hidden = false;
+    });
+
+    /* ── Sync all UI controls to current saved state ── */
+    function syncSettingsUI() {
+      // Theme
+      const isDark = document.documentElement.classList.contains('dark');
+      const themeBtn = document.getElementById('theme-toggle');
+      themeBtn.setAttribute('aria-checked', isDark ? 'true' : 'false');
+
+      // 3D BG
+      const bg3dOn = localStorage.getItem('finalai:bg3d') === '1';
+      document.getElementById('bg3d-toggle').setAttribute('aria-checked', bg3dOn ? 'true' : 'false');
+
+      // Compact
+      const compactOn = localStorage.getItem('finalai:compact') === '1';
+      document.getElementById('compact-toggle').setAttribute('aria-checked', compactOn ? 'true' : 'false');
+
+      // Font size
+      const fontSize = localStorage.getItem('finalai:fontsize') || 'medium';
+      document.querySelectorAll('.font-size-btn').forEach(b => {
+        b.classList.toggle('active', b.dataset.size === fontSize);
+      });
+
+      // Accent color
+      const accent = localStorage.getItem('finalai:accent') || 'indigo';
+      document.querySelectorAll('.color-dot').forEach(d => {
+        d.classList.toggle('active', d.dataset.color === accent);
+      });
+    }
+
+    /* ── Tab switching ── */
+    document.querySelectorAll('.settings-tab').forEach(function(tab) {
+      tab.addEventListener('click', function() {
+        document.querySelectorAll('.settings-tab').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.settings-panel').forEach(p => p.classList.remove('active'));
+        tab.classList.add('active');
+        const panel = document.getElementById('tab-' + tab.dataset.tab);
+        if (panel) panel.classList.add('active');
+      });
+    });
+
+    /* ── Theme toggle inside settings ── */
+    const themeToggleInSettings = document.getElementById('theme-toggle');
+    themeToggleInSettings.addEventListener('click', function() {
+      const dark = !document.documentElement.classList.contains('dark');
+      document.documentElement.classList.toggle('dark', dark);
+      localStorage.setItem('finalai:theme', dark ? 'dark' : 'light');
+      themeToggleInSettings.setAttribute('aria-checked', dark ? 'true' : 'false');
+      // Update hljs theme if the function exists
+      if (typeof updateHljsThemeGlobal === 'function') updateHljsThemeGlobal(dark);
+      const link = document.getElementById('hljs-theme');
+      if (link) {
+        link.href = dark
+          ? 'https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.10.0/build/styles/atom-one-dark.min.css'
+          : 'https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.10.0/build/styles/atom-one-light.min.css';
+      }
+    });
+
+    /* ── 3D Background toggle ── */
+    var bg3dActive = localStorage.getItem('finalai:bg3d') === '1';
+    var isMobile = window.matchMedia('(max-width: 860px)').matches;
+    var bg3dScene = null;
+
+    function applyBg3d(on) {
+      if (isMobile) return; // only desktop
+      document.body.classList.toggle('bg3d-on', on);
+      const canvas = document.getElementById('bg3d-canvas');
+      if (on) {
+        canvas.classList.add('active');
+        if (!bg3dScene) bg3dScene = initBg3D(canvas);
+      } else {
+        canvas.classList.remove('active');
+      }
+    }
+
+    document.getElementById('bg3d-toggle').addEventListener('click', function() {
+      bg3dActive = !bg3dActive;
+      localStorage.setItem('finalai:bg3d', bg3dActive ? '1' : '0');
+      this.setAttribute('aria-checked', bg3dActive ? 'true' : 'false');
+      applyBg3d(bg3dActive);
+    });
+
+    /* ── 3D Scene: floating particles + mouse-reactive glow ── */
+    function initBg3D(canvas) {
+      var ctx = canvas.getContext('2d');
+      var W, H, particles, mouseX = -999, mouseY = -999;
+
+      function resize() {
+        W = canvas.width = window.innerWidth;
+        H = canvas.height = window.innerHeight;
+      }
+      resize();
+      window.addEventListener('resize', resize);
+
+      document.addEventListener('mousemove', function(e) { mouseX = e.clientX; mouseY = e.clientY; });
+
+      // Build particles
+      var COUNT = 55;
+      particles = Array.from({ length: COUNT }, function() {
+        return {
+          x: Math.random() * window.innerWidth,
+          y: Math.random() * window.innerHeight,
+          r: 1.5 + Math.random() * 3,
+          vx: (Math.random() - 0.5) * 0.35,
+          vy: (Math.random() - 0.5) * 0.35,
+          alpha: 0.15 + Math.random() * 0.35,
+          hue: 220 + Math.random() * 80,   // indigo→violet range
+        };
+      });
+
+      var raf;
+      function draw() {
+        raf = requestAnimationFrame(draw);
+        if (!document.body.classList.contains('bg3d-on')) return;
+
+        var isDark = document.documentElement.classList.contains('dark');
+        ctx.clearRect(0, 0, W, H);
+
+        // Subtle radial mouse glow
+        var grd = ctx.createRadialGradient(mouseX, mouseY, 0, mouseX, mouseY, 280);
+        grd.addColorStop(0, isDark ? 'rgba(99,102,241,0.07)' : 'rgba(79,70,229,0.05)');
+        grd.addColorStop(1, 'transparent');
+        ctx.fillStyle = grd;
+        ctx.fillRect(0, 0, W, H);
+
+        // Particles
+        for (var i = 0; i < particles.length; i++) {
+          var p = particles[i];
+          p.x += p.vx;
+          p.y += p.vy;
+          if (p.x < -10) p.x = W + 10;
+          if (p.x > W + 10) p.x = -10;
+          if (p.y < -10) p.y = H + 10;
+          if (p.y > H + 10) p.y = -10;
+
+          // Mouse attraction
+          var dx = mouseX - p.x, dy = mouseY - p.y;
+          var dist = Math.sqrt(dx*dx + dy*dy);
+          if (dist < 160) {
+            p.x += dx * 0.003;
+            p.y += dy * 0.003;
+          }
+
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+          ctx.fillStyle = isDark
+            ? 'hsla(' + p.hue + ',70%,75%,' + p.alpha + ')'
+            : 'hsla(' + p.hue + ',60%,45%,' + (p.alpha * 0.6) + ')';
+          ctx.fill();
+        }
+
+        // Connecting lines
+        for (var i = 0; i < particles.length; i++) {
+          for (var j = i + 1; j < particles.length; j++) {
+            var dx2 = particles[i].x - particles[j].x;
+            var dy2 = particles[i].y - particles[j].y;
+            var d2 = Math.sqrt(dx2*dx2 + dy2*dy2);
+            if (d2 < 100) {
+              ctx.beginPath();
+              ctx.moveTo(particles[i].x, particles[i].y);
+              ctx.lineTo(particles[j].x, particles[j].y);
+              ctx.strokeStyle = isDark
+                ? 'rgba(129,140,248,' + (0.12 * (1 - d2/100)) + ')'
+                : 'rgba(79,70,229,' + (0.07 * (1 - d2/100)) + ')';
+              ctx.lineWidth = 0.7;
+              ctx.stroke();
+            }
+          }
+        }
+      }
+      draw();
+      return { raf: raf };
+    }
+
+    /* ── Compact mode toggle ── */
+    function applyCompact(on) { document.body.classList.toggle('compact', on); }
+    var compactOn = localStorage.getItem('finalai:compact') === '1';
+    applyCompact(compactOn);
+
+    document.getElementById('compact-toggle').addEventListener('click', function() {
+      compactOn = !compactOn;
+      localStorage.setItem('finalai:compact', compactOn ? '1' : '0');
+      this.setAttribute('aria-checked', compactOn ? 'true' : 'false');
+      applyCompact(compactOn);
+    });
+
+    /* ── Font size ── */
+    function applyFontSize(size) {
+      document.body.classList.remove('font-small', 'font-medium', 'font-large');
+      document.body.classList.add('font-' + size);
+    }
+    var savedFont = localStorage.getItem('finalai:fontsize') || 'medium';
+    applyFontSize(savedFont);
+
+    document.querySelectorAll('.font-size-btn').forEach(function(btn) {
+      btn.addEventListener('click', function() {
+        document.querySelectorAll('.font-size-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        var size = btn.dataset.size;
+        localStorage.setItem('finalai:fontsize', size);
+        applyFontSize(size);
+      });
+    });
+
+    /* ── Accent color ── */
+    var ACCENT_COLORS = {
+      indigo: null, // default, no class needed
+      teal:   { light: '#0d9488', dark: '#2dd4bf', hover_l: '#0f766e', hover_d: '#14b8a6' },
+      rose:   { light: '#e11d48', dark: '#fb7185', hover_l: '#be123c', hover_d: '#f43f5e' },
+      amber:  { light: '#d97706', dark: '#fbbf24', hover_l: '#b45309', hover_d: '#f59e0b' },
+      sky:    { light: '#0284c7', dark: '#38bdf8', hover_l: '#0369a1', hover_d: '#0ea5e9' },
+    };
+
+    function applyAccent(color) {
+      document.body.classList.remove('accent-teal','accent-rose','accent-amber','accent-sky');
+      if (color && color !== 'indigo') document.body.classList.add('accent-' + color);
+    }
+    var savedAccent = localStorage.getItem('finalai:accent') || 'indigo';
+    applyAccent(savedAccent);
+
+    document.querySelectorAll('.color-dot').forEach(function(dot) {
+      dot.addEventListener('click', function() {
+        document.querySelectorAll('.color-dot').forEach(d => d.classList.remove('active'));
+        dot.classList.add('active');
+        var color = dot.dataset.color;
+        localStorage.setItem('finalai:accent', color);
+        applyAccent(color);
+      });
+    });
+
+    /* ── Apply saved 3D on load ── */
+    if (bg3dActive && !isMobile) applyBg3d(true);
+
+    /* ── Initial sync ── */
+    // Sync on open each time, not just on load
+  })();
+  </script>
+
   <script>
   /* ================= UI enhancements =================
      Lightweight visual layer: button ripple + keeping the mode
