@@ -1733,6 +1733,82 @@ body.bg3d-on .modal-backdrop { backdrop-filter: blur(8px); }
 /* ── Settings-specific overrides to modal-body padding ── */
 .modal-wide .modal-body { gap: 0; }
 
+/* ══════════════════════════════════════════════
+   Image Generation Mode
+   ══════════════════════════════════════════════ */
+.img-gen-grid {
+  display: grid;
+  gap: 0.75rem;
+  width: 100%;
+  max-width: 700px;
+}
+.img-gen-grid-1 { grid-template-columns: 1fr; }
+.img-gen-grid-2 { grid-template-columns: 1fr 1fr; }
+.img-gen-grid-3 { grid-template-columns: 1fr 1fr 1fr; }
+.img-gen-grid-4 { grid-template-columns: 1fr 1fr; }
+
+.img-gen-item {
+  position: relative;
+  border-radius: var(--radius);
+  overflow: hidden;
+  background: var(--muted);
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.img-gen-loader {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  min-height: 100px;
+}
+
+.img-gen-result {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  border-radius: var(--radius);
+  cursor: zoom-in;
+  transition: transform 0.2s ease;
+}
+.img-gen-result:hover { transform: scale(1.02); }
+
+.img-gen-dl {
+  position: absolute;
+  bottom: 0.5rem;
+  inset-inline-end: 0.5rem;
+  background: rgba(0,0,0,0.65);
+  color: #fff;
+  font-size: 0.75rem;
+  padding: 0.3rem 0.6rem;
+  border-radius: 999px;
+  text-decoration: none;
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  backdrop-filter: blur(4px);
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+.img-gen-item:hover .img-gen-dl { opacity: 1; }
+
+.img-gen-error {
+  color: var(--danger);
+  font-size: 0.82rem;
+  text-align: center;
+  padding: 1rem;
+}
+
+@media (max-width: 600px) {
+  .img-gen-grid-3 { grid-template-columns: 1fr 1fr; }
+  .img-gen-grid-4 { grid-template-columns: 1fr 1fr; }
+}
+
   </style>
 </head>
 <body>
@@ -1811,6 +1887,16 @@ body.bg3d-on .modal-backdrop { backdrop-filter: blur(8px); }
               <span class="model-option-text">
                 <span class="model-option-title">برمجة</span>
                 <span class="model-option-desc">لكتابة وتحليل الأكواد البرمجية</span>
+              </span>
+              <svg class="model-option-check" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M20 6 9 17l-5-5"/></svg>
+            </button>
+            <button class="model-select-option" data-mode="image" role="option" aria-selected="false" type="button">
+              <span class="model-option-icon" aria-hidden="true">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>
+              </span>
+              <span class="model-option-text">
+                <span class="model-option-title">توليد صور</span>
+                <span class="model-option-desc">ارسم أي صورة بالوصف</span>
               </span>
               <svg class="model-option-check" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M20 6 9 17l-5-5"/></svg>
             </button>
@@ -2436,8 +2522,8 @@ window.getWorkerUrl = function () {
 
   /* ================= State ================= */
   const state = {
-    chatsByMode: { chat: [], code: [] },   // separate chat histories per mode — {id, title, createdAt, updatedAt, messages: [{id, role, content, files?}]}
-    activeIdByMode: { chat: null, code: null },
+    chatsByMode: { chat: [], code: [], image: [] },   // separate chat histories per mode
+    activeIdByMode: { chat: null, code: null, image: null },
     attachments: [],      // parsed pending files [{name,size,kind,text,...}]
     streaming: false,
     abortController: null,
@@ -2546,7 +2632,7 @@ window.getWorkerUrl = function () {
       if (legacy) localStorage.removeItem(STORE_PREFIX);
     } catch (_) { /* private mode */ }
 
-    for (const m of ['chat', 'code']) {
+    for (const m of ['chat', 'code', 'image']) {
       try {
         const raw = localStorage.getItem(storeKeyFor(m));
         state.chatsByMode[m] = raw ? (JSON.parse(raw) || []) : [];
@@ -3539,12 +3625,113 @@ window.getWorkerUrl = function () {
     autoScroll = true;
     scrollToBottom(true);
 
-    await requestCompletion(chat);
+    if (state.mode === 'image') {
+      await generateImage(chat, text);
+    } else {
+      await requestCompletion(chat);
+    }
+  }
+
+  /* ================= Image Generation (Pollinations.ai — no API key) ================= */
+  async function generateImage(chat, prompt) {
+    // Detect image count request
+    const countMatch = prompt.match(/(\d+)\s*(صور|صورة|images?)/i);
+    const count = countMatch ? Math.min(parseInt(countMatch[1]), 4) : 1;
+
+    // Add assistant placeholder message
+    const assistantMsg = { id: uid(), role: 'assistant', content: '', imagePrompt: prompt, imageCount: count };
+    chat.messages.push(assistantMsg);
+    chat.updatedAt = Date.now();
+
+    const msgEl = buildMessageEl(chat, assistantMsg);
+    const bubble = msgEl.querySelector('.msg-bubble');
+    bubble.innerHTML = '<div class="typing" aria-label="جارٍ توليد الصورة"><span></span><span></span><span></span></div>';
+    els.messages.appendChild(msgEl);
+    els.welcome.style.display = 'none';
+    autoScroll = true;
+    scrollToBottom(true);
+
+    setStreaming(true);
+    saveChats();
+
+    try {
+      const seeds = Array.from({ length: count }, () => Math.floor(Math.random() * 999999));
+      const encoded = encodeURIComponent(prompt);
+
+      // Build image URLs (Pollinations.ai — free, no API key)
+      const urls = seeds.map((seed, i) => {
+        const models = ['flux', 'flux-realism', 'flux-anime', 'flux-3d'];
+        const model = count === 1 ? 'flux' : (models[i] || 'flux');
+        return `https://image.pollinations.ai/prompt/${encoded}?model=${model}&width=1024&height=1024&enhance=true&nologo=true&private=true&seed=${seed}`;
+      });
+
+      bubble.innerHTML = '';
+
+      const imgGrid = document.createElement('div');
+      imgGrid.className = 'img-gen-grid img-gen-grid-' + count;
+      bubble.appendChild(imgGrid);
+
+      // Load images in parallel
+      const promises = urls.map((url, i) => new Promise((resolve) => {
+        const wrapper = document.createElement('div');
+        wrapper.className = 'img-gen-item';
+
+        const loader = document.createElement('div');
+        loader.className = 'img-gen-loader';
+        loader.innerHTML = '<div class="typing"><span></span><span></span><span></span></div>';
+        wrapper.appendChild(loader);
+        imgGrid.appendChild(wrapper);
+
+        const img = new Image();
+        img.onload = () => {
+          loader.remove();
+          img.className = 'img-gen-result';
+          img.alt = prompt;
+          img.title = prompt;
+          wrapper.appendChild(img);
+
+          // Download button
+          const dl = document.createElement('a');
+          dl.className = 'img-gen-dl';
+          dl.href = url;
+          dl.target = '_blank';
+          dl.rel = 'noopener noreferrer';
+          dl.download = `final-ai-${Date.now()}-${i}.jpg`;
+          dl.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> تحميل';
+          wrapper.appendChild(dl);
+          scrollToBottom();
+          resolve();
+        };
+        img.onerror = () => {
+          loader.remove();
+          const err = document.createElement('div');
+          err.className = 'img-gen-error';
+          err.textContent = 'فشل تحميل الصورة';
+          wrapper.appendChild(err);
+          resolve();
+        };
+        img.src = url;
+      }));
+
+      await Promise.all(promises);
+
+      // Save image urls in message
+      assistantMsg.content = `[صور مولّدة: ${prompt}]`;
+      assistantMsg.imageUrls = urls;
+      saveChats();
+      renderChatList();
+
+    } catch (e) {
+      const bubble2 = els.messages.querySelector(`[data-id="${assistantMsg.id}"] .msg-bubble`);
+      if (bubble2) bubble2.innerHTML = `<span style="color:var(--danger)">حدث خطأ أثناء توليد الصورة: ${e.message}</span>`;
+    } finally {
+      setStreaming(false);
+    }
   }
 
   /* ================= Mode / Model select ================= */
   const MODE_STORE_KEY = 'finalai:mode';
-  const MODE_LABELS = { chat: 'دردشة نصية', code: 'برمجة' };
+  const MODE_LABELS = { chat: 'دردشة نصية', code: 'برمجة', image: 'توليد صور' };
 
   function applyModeUI() {
     els.modelSelectLabel.textContent = MODE_LABELS[state.mode] || MODE_LABELS.chat;
@@ -3558,13 +3745,13 @@ window.getWorkerUrl = function () {
   function loadMode() {
     try {
       const stored = localStorage.getItem(MODE_STORE_KEY);
-      if (stored === 'chat' || stored === 'code') state.mode = stored;
+      if (stored === 'chat' || stored === 'code' || stored === 'image') state.mode = stored;
     } catch (_) { /* private mode */ }
     applyModeUI();
   }
 
   function setMode(mode) {
-    if (mode !== 'chat' && mode !== 'code') return;
+    if (mode !== 'chat' && mode !== 'code' && mode !== 'image') return;
     if (state.mode === mode) return;
     if (state.streaming) stopStreaming();
     state.mode = mode;
@@ -3602,11 +3789,18 @@ window.getWorkerUrl = function () {
   /* ================= Deep Think Toggle ================= */
   function updateDeepThinkUI() {
     const isCode = state.mode === 'code';
+    const isImage = state.mode === 'image';
     // Show/hide the tools bar based on mode
     els.composerTools.classList.toggle('visible', isCode);
     // Update button active state
-    els.deepThinkBtn.classList.toggle('active', state.deepThink);
-    els.deepThinkBtn.setAttribute('aria-pressed', state.deepThink ? 'true' : 'false');
+    els.deepThinkBtn.classList.toggle('active', state.deepThink && isCode);
+    els.deepThinkBtn.setAttribute('aria-pressed', (state.deepThink && isCode) ? 'true' : 'false');
+    // Update placeholder text
+    if (els.promptInput) {
+      els.promptInput.placeholder = isImage
+        ? 'صف الصورة اللي عايز توليدها...'
+        : (isCode ? 'اكتب كودك أو مشكلتك البرمجية...' : 'اكتب رسالتك هنا...');
+    }
   }
 
   els.deepThinkBtn.addEventListener('click', () => {
