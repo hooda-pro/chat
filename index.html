@@ -1520,12 +1520,9 @@ html[dir="ltr"] .toast-container { transform: translateX(-50%); }
 /* Wide modal for settings */
 .modal-wide { max-width: 520px; }
 
-/* ── Settings Tabs ── */
+/* ── Settings Tabs (hidden — only one tab remains) ── */
 .settings-tabs {
-  display: flex;
-  gap: 0.15rem;
-  padding: 0 1.1rem;
-  border-bottom: 1px solid var(--border);
+  display: none;
 }
 .settings-tab {
   display: flex;
@@ -1918,14 +1915,6 @@ body.bg3d-on .modal-backdrop { backdrop-filter: blur(8px); }
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
           المظهر
         </button>
-        <button class="settings-tab" data-tab="connection">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 12.55a11 11 0 0 1 14.08 0M1.42 9a16 16 0 0 1 21.16 0M8.53 16.11a6 6 0 0 1 6.95 0M12 20h.01"/></svg>
-          الاتصال
-        </button>
-        <button class="settings-tab" data-tab="data">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
-          البيانات
-        </button>
       </div>
 
       <div class="modal-body">
@@ -2015,30 +2004,14 @@ body.bg3d-on .modal-backdrop { backdrop-filter: blur(8px); }
 
         </div>
 
-        <!-- ── Connection Tab ── -->
-        <div class="settings-panel" id="tab-connection">
-          <label class="field">
-            <span class="field-label">رابط خادم Cloudflare Worker</span>
-            <input type="url" id="worker-url-input" dir="ltr" placeholder="https://final-ai.example.workers.dev" />
-            <span class="field-hint">يتم الاتصال بالنموذج عبر هذا الرابط فقط. مفتاح API محفوظ بأمان داخل Cloudflare ولا يظهر للمستخدم أبدًا.</span>
-          </label>
-        </div>
-
-        <!-- ── Data Tab ── -->
-        <div class="settings-panel" id="tab-data">
-          <div class="danger-zone" style="border-top:none;padding-top:0">
-            <p class="settings-row-desc" style="margin-bottom:0.75rem">هذا الإجراء لا يمكن التراجع عنه.</p>
-            <button class="danger-btn" id="clear-all-btn">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="3 6 5 6 21 6"/><path d="m19 6-.867 12.142A2 2 0 0 1 16.138 20H7.862a2 2 0 0 1-1.995-1.858L5 6M10 11v6M14 11v6M9 6V4h6v2"/></svg>
-              حذف جميع المحادثات
-            </button>
-          </div>
-        </div>
+        <!-- hidden input kept so JS refs don't break, but invisible -->
+        <input type="hidden" id="worker-url-input" />
 
       </div>
-      <div class="modal-footer">
-        <button class="primary-btn" id="settings-save">حفظ</button>
-      </div>
+      <!-- hidden save button kept so JS refs don't break -->
+      <button id="settings-save" hidden></button>
+      <!-- hidden clear-all button kept so JS refs don't break -->
+      <button id="clear-all-btn" hidden></button>
     </div>
   </div>
 
@@ -3883,13 +3856,11 @@ window.getWorkerUrl = function () {
     const settingsBtn = document.getElementById('settings-btn');
     const settingsModal = document.getElementById('settings-modal');
     const settingsClose = document.getElementById('settings-close');
-    const workerUrlInput = document.getElementById('worker-url-input');
 
     // The original listener is registered later in the main script block,
     // so we patch by wrapping with a one-time replace approach via a custom event.
     // We use a flag to avoid double-opening:
     settingsBtn.addEventListener('click', function(e) {
-      workerUrlInput.value = localStorage.getItem('finalai:workerUrl') || '';
       syncSettingsUI();
       settingsModal.hidden = false;
     });
@@ -3922,16 +3893,7 @@ window.getWorkerUrl = function () {
       });
     }
 
-    /* ── Tab switching ── */
-    document.querySelectorAll('.settings-tab').forEach(function(tab) {
-      tab.addEventListener('click', function() {
-        document.querySelectorAll('.settings-tab').forEach(t => t.classList.remove('active'));
-        document.querySelectorAll('.settings-panel').forEach(p => p.classList.remove('active'));
-        tab.classList.add('active');
-        const panel = document.getElementById('tab-' + tab.dataset.tab);
-        if (panel) panel.classList.add('active');
-      });
-    });
+
 
     /* ── Theme toggle inside settings ── */
     const themeToggleInSettings = document.getElementById('theme-toggle');
